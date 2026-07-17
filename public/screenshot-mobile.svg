@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" width="100%" height="100%">
+  <!-- Background -->
+  <rect width="720" height="1280" fill="#0a0b0f" />
+  
+  <!-- Ambient Gradients -->
+  <circle cx="100" cy="150" r="300" fill="#ff5a1f" opacity="0.12" filter="blur(80px)" />
+  <circle cx="600" cy="800" r="350" fill="#2d8cff" opacity="0.08" filter="blur(100px)" />
+
+  <!-- App Header Bar -->
+  <g transform="translate(48, 60)">
+    <!-- Logo Icon -->
+    <rect width="48" height="48" rx="10" fill="#ff5a1f" />
+    <text x="24" y="32" font-family="'Inter', system-ui, sans-serif" font-size="24" font-weight="900" fill="#000000" text-anchor="middle">B</text>
+    
+    <!-- Title -->
+    <text x="64" y="32" font-family="'Space Grotesk', system-ui, sans-serif" font-size="28" font-weight="bold" fill="#ffffff">Birr<tspan fill="#ff5a1f">Tu</tspan></text>
+    
+    <!-- Network badge -->
+    <rect x="520" y="8" width="104" height="32" rx="16" fill="#18191e" stroke="#2a2e38" stroke-width="1.5" />
+    <circle cx="538" cy="24" r="5" fill="#10b981" />
+    <text x="552" y="30" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="bold" fill="#10b981">SECURE</text>
+  </g>
+
+  <!-- Balance Summary Card -->
+  <g transform="translate(48, 160)">
+    <rect width="624" height="200" rx="24" fill="#111218" stroke="#1f212a" stroke-width="2" />
+    
+    <text x="32" y="54" font-family="'Inter', sans-serif" font-size="16" font-weight="600" fill="#8e92a2" letter-spacing="1">TOTAL NET BALANCE</text>
+    <text x="32" y="120" font-family="'Space Grotesk', sans-serif" font-size="52" font-weight="bold" fill="#ffffff">46,850.00 <tspan font-size="28" fill="#ff5a1f" font-weight="normal">ETB</tspan></text>
+    
+    <!-- Cash Flow Info -->
+    <line x1="32" y1="150" x2="592" y2="150" stroke="#1f212a" stroke-width="1" />
+    
+    <text x="32" y="180" font-family="'Inter', sans-serif" font-size="14" fill="#10b981">▲ +12,450.00 This Month</text>
+    <text x="592" y="180" font-family="'Inter', sans-serif" font-size="14" fill="#a0a5b5" text-anchor="end">3 Local Accounts Registered</text>
+  </g>
+
+  <!-- Interactive Mock Chart -->
+  <g transform="translate(48, 390)">
+    <rect width="624" height="280" rx="24" fill="#111218" stroke="#1f212a" stroke-width="2" />
+    <text x="32" y="44" font-family="'Space Grotesk', sans-serif" font-size="18" font-weight="bold" fill="#ffffff">Cash Flow Velocity</text>
+    
+    <!-- Grid lines -->
+    <line x1="32" y1="100" x2="592" y2="100" stroke="#1f212a" stroke-width="1" stroke-dasharray="4 4" />
+    <line x1="32" y1="160" x2="592" y2="160" stroke="#1f212a" stroke-width="1" stroke-dasharray="4 4" />
+    <line x1="32" y1="220" x2="592" y2="220" stroke="#1f212a" stroke-width="1" stroke-dasharray="4 4" />
+
+    <!-- Chart Path -->
+    <path d="M 40,210 Q 140,150 240,170 T 440,90 T 580,120" fill="none" stroke="#ff5a1f" stroke-width="4" />
+    <path d="M 40,210 Q 140,150 240,170 T 440,90 T 580,120 L 580,240 L 40,240 Z" fill="url(#orangeGrad)" opacity="0.15" />
+    
+    <!-- Accent Dots -->
+    <circle cx="440" cy="90" r="6" fill="#ff5a1f" />
+    <circle cx="440" cy="90" r="12" fill="none" stroke="#ff5a1f" stroke-width="2" opacity="0.5" />
+    
+    <!-- Chart Labels -->
+    <text x="40" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e">MON</text>
+    <text x="150" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e">TUE</text>
+    <text x="260" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e">WED</text>
+    <text x="370" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e">THU</text>
+    <text x="480" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e">FRI</text>
+    <text x="580" y="254" font-family="'JetBrains Mono', monospace" font-size="11" fill="#5c5f6e" text-anchor="end">SAT</text>
+  </g>
+
+  <!-- Simulated Wallets / Accounts Grid -->
+  <g transform="translate(48, 700)">
+    <text x="0" y="24" font-family="'Space Grotesk', sans-serif" font-size="20" font-weight="bold" fill="#ffffff">Active Accounts</text>
+    
+    <!-- CBE Card -->
+    <g transform="translate(0, 44)">
+      <rect width="296" height="140" rx="16" fill="#151720" stroke="#ff5a1f" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="36" rx="8" fill="#ff5a1f" opacity="0.1" />
+      <text x="34" y="38" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ff5a1f" text-anchor="middle">C</text>
+      
+      <text x="64" y="28" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ffffff">CBE Birr</text>
+      <text x="64" y="44" font-family="'Inter', sans-serif" font-size="11" fill="#8e92a2">Commercial Bank</text>
+      
+      <text x="16" y="104" font-family="'Space Grotesk', sans-serif" font-size="22" font-weight="bold" fill="#ffffff">32,400.00 <tspan font-size="13" fill="#ff5a1f">ETB</tspan></text>
+    </g>
+
+    <!-- Telebirr Card -->
+    <g transform="translate(328, 44)">
+      <rect width="296" height="140" rx="16" fill="#151720" stroke="#1f212a" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="36" rx="8" fill="#2d8cff" opacity="0.1" />
+      <text x="34" y="38" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#2d8cff" text-anchor="middle">T</text>
+      
+      <text x="64" y="28" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ffffff">telebirr</text>
+      <text x="64" y="44" font-family="'Inter', sans-serif" font-size="11" fill="#8e92a2">Mobile Money</text>
+      
+      <text x="16" y="104" font-family="'Space Grotesk', sans-serif" font-size="22" font-weight="bold" fill="#ffffff">14,450.00 <tspan font-size="13" fill="#2d8cff">ETB</tspan></text>
+    </g>
+  </g>
+
+  <!-- Recent Transactions Ledger -->
+  <g transform="translate(48, 920)">
+    <text x="0" y="24" font-family="'Space Grotesk', sans-serif" font-size="20" font-weight="bold" fill="#ffffff">Recent Operations</text>
+    
+    <!-- Transaction Row 1 -->
+    <g transform="translate(0, 44)">
+      <rect width="624" height="74" rx="14" fill="#111218" stroke="#1f212a" stroke-width="1" />
+      <circle cx="36" cy="37" r="16" fill="#10b981" opacity="0.1" />
+      <text x="36" y="42" font-family="'Inter', sans-serif" font-size="14" fill="#10b981" text-anchor="middle">▲</text>
+      
+      <text x="68" y="34" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ffffff">Salary Deposit</text>
+      <text x="68" y="52" font-family="'Inter', sans-serif" font-size="11" fill="#5c5f6e">Commercial Bank • Completed</text>
+      
+      <text x="592" y="42" font-family="'Space Grotesk', sans-serif" font-size="15" font-weight="bold" fill="#10b981" text-anchor="end">+15,000.00 ETB</text>
+    </g>
+
+    <!-- Transaction Row 2 -->
+    <g transform="translate(0, 130)">
+      <rect width="624" height="74" rx="14" fill="#111218" stroke="#1f212a" stroke-width="1" />
+      <circle cx="36" cy="37" r="16" fill="#ef4444" opacity="0.1" />
+      <text x="36" y="42" font-family="'Inter', sans-serif" font-size="14" fill="#ef4444" text-anchor="middle">▼</text>
+      
+      <text x="68" y="34" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ffffff">Fuel &amp; Transport</text>
+      <text x="68" y="52" font-family="'Inter', sans-serif" font-size="11" fill="#5c5f6e">telebirr • Personal Wallet</text>
+      
+      <text x="592" y="42" font-family="'Space Grotesk', sans-serif" font-size="15" font-weight="bold" fill="#ffffff" text-anchor="end">-850.00 ETB</text>
+    </g>
+
+    <!-- Transaction Row 3 -->
+    <g transform="translate(0, 216)">
+      <rect width="624" height="74" rx="14" fill="#111218" stroke="#1f212a" stroke-width="1" />
+      <circle cx="36" cy="37" r="16" fill="#2d8cff" opacity="0.1" />
+      <text x="36" y="42" font-family="'Inter', sans-serif" font-size="14" fill="#2d8cff" text-anchor="middle">⇄</text>
+      
+      <text x="68" y="34" font-family="'Inter', sans-serif" font-size="14" font-weight="bold" fill="#ffffff">Withdraw cash</text>
+      <text x="68" y="52" font-family="'Inter', sans-serif" font-size="11" fill="#5c5f6e">CBE Birr to Cash Ledger</text>
+      
+      <text x="592" y="42" font-family="'Space Grotesk', sans-serif" font-size="15" font-weight="bold" fill="#2d8cff" text-anchor="end">2,000.00 ETB</text>
+    </g>
+  </g>
+
+  <!-- Gradient Definitions -->
+  <defs>
+    <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff5a1f" stop-opacity="1" />
+      <stop offset="100%" stop-color="#ff5a1f" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+</svg>

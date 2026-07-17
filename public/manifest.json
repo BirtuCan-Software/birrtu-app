@@ -1,0 +1,75 @@
+{
+  "name": "BirrTu Wallet Tracker",
+  "short_name": "BirrTu",
+  "description": "Local-first ETB expense & revenue tracker for the Ethiopian financial ecosystem.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#0a0b0f",
+  "theme_color": "#0a0b0f",
+  "orientation": "portrait",
+  "categories": ["finance", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "View Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your total net balance and active local-first accounts",
+      "url": "/",
+      "icons": [{ "src": "/logo.png", "sizes": "500x500", "type": "image/png" }]
+    },
+    {
+      "name": "Add Transaction",
+      "short_name": "New Operation",
+      "description": "Log an expense, deposit, or transfer in Ethiopian Birr",
+      "url": "/add",
+      "icons": [{ "src": "/logo.png", "sizes": "500x500", "type": "image/png" }]
+    },
+    {
+      "name": "Transaction History",
+      "short_name": "Ledger",
+      "description": "Browse or search your complete list of local operations",
+      "url": "/transactions",
+      "icons": [{ "src": "/logo.png", "sizes": "500x500", "type": "image/png" }]
+    },
+    {
+      "name": "Application Settings",
+      "short_name": "Settings",
+      "description": "Manage Google Drive sync, workspaces, security, and appearance",
+      "url": "/settings",
+      "icons": [{ "src": "/logo.png", "sizes": "500x500", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.svg",
+      "sizes": "720x1280",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "BirrTu Mobile Dashboard & Account Ledger"
+    },
+    {
+      "src": "/screenshot-desktop.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "BirrTu Workspace Management Overview"
+    }
+  ]
+}
