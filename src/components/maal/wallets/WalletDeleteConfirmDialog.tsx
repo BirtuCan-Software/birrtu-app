@@ -1,6 +1,7 @@
 import React from "react";
 import type { Wallet } from "@/lib/db";
 import { AlertTriangle } from "lucide-react";
+import { Modal } from "@/components/maal/Modal";
 
 interface WalletDeleteConfirmDialogProps {
   wallet: Wallet | null;
@@ -12,9 +13,9 @@ export function WalletDeleteConfirmDialog({ wallet, onClose, onConfirm }: Wallet
   if (!wallet) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+    <Modal ariaLabel={`Delete ${wallet.name}`}>
       <div
-        className="shadow-hard-lg w-full max-w-sm rounded-[20px] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150"
+        className="shadow-hard-lg flex max-h-full w-full max-w-sm touch-auto flex-col gap-4 overflow-y-auto rounded-[20px] p-6 animate-in fade-in zoom-in-95 duration-150"
         style={{
           background: "var(--bg-surface)",
           border: "2px solid var(--border-strong)",
@@ -61,6 +62,6 @@ export function WalletDeleteConfirmDialog({ wallet, onClose, onConfirm }: Wallet
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

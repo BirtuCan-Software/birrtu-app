@@ -27,7 +27,7 @@ export function AppHeader() {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+      className="sticky top-0 z-30 flex items-center justify-between px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]"
       style={{
         background: "var(--bg-base)",
         borderBottom: "1px solid var(--border-subtle)",

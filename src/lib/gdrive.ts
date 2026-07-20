@@ -7,6 +7,7 @@ interface SyncData {
   activeAccountId: string;
   wallets: any[];
   transactions: any[];
+  settings?: any;
   lastSyncedAt: string;
 }
 

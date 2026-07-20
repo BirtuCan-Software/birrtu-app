@@ -4,6 +4,7 @@ import { accountLabel, formatETB, timeAgo, formatDateTime } from "@/lib/format";
 import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Trash2 } from "lucide-react";
 import { useTx } from "@/lib/tx-store";
 import { useSettings } from "@/lib/settings";
+import { Modal } from "@/components/maal/Modal";
 import { motion, useAnimation, useMotionValue, useTransform } from "motion/react";
 
 export interface TxRowProps {
@@ -148,9 +149,9 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
 
       {/* Confirmation Dialog Overlay */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <Modal ariaLabel="Delete transaction">
           <div
-            className="shadow-hard-lg w-full max-w-sm rounded-[20px] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 text-left"
+            className="shadow-hard-lg flex max-h-full w-full max-w-sm touch-auto flex-col gap-4 overflow-y-auto rounded-[20px] p-6 animate-in fade-in zoom-in-95 duration-150 text-left"
             style={{
               background: "var(--bg-surface)",
               border: "2px solid var(--border-strong)",
@@ -226,9 +227,8 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
 }
-

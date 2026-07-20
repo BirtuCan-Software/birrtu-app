@@ -55,7 +55,7 @@ interface AccountCtx {
   user: AppUser | null;
   token: string | null; // Cache the access token in memory.
   isLoggingIn: boolean;
-  googleSignIn: () => Promise<{ success: boolean; error?: string }>;
+  googleSignIn: () => Promise<{ success: boolean; error?: string; token?: string }>;
   guestSignIn: () => void;
   signUp: (username: string, phone: string, password: string) => { success: boolean; error?: string };
   login: (identifier: string, password: string) => { success: boolean; error?: string };

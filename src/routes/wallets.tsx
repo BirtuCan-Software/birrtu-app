@@ -171,9 +171,10 @@ export default function WalletsPage() {
     accountNumber: string;
     accountHolder: string;
     logoUrl?: string;
+    balance?: number;
   }) => {
     if (editingWallet) {
-      updateWallet(editingWallet.id, data);
+      updateWallet(editingWallet.id, data, data.balance);
     } else {
       addWallet(data);
     }
@@ -580,6 +581,7 @@ export default function WalletsPage() {
         onClose={() => setIsOpen(false)} 
         onSubmit={handleFormSubmit} 
         wallet={editingWallet} 
+        currentBalance={editingWallet ? balances[editingWallet.id] || 0 : undefined}
       />
 
       {/* Custom Confirmation Dialog for Deleting Wallets */}

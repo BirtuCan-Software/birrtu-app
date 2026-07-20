@@ -7,6 +7,7 @@ import { PinLockScreen } from "@/components/maal/PinLockScreen";
 import { registerLocalPasskey } from "@/lib/passkey";
 import { timeAgo } from "@/lib/format";
 import { Fingerprint, Key, AlertTriangle, ExternalLink } from "lucide-react";
+import { Modal } from "@/components/maal/Modal";
 
 export function SyncSecuritySection() {
   const { settings, update } = useSettings();
@@ -101,7 +102,7 @@ export function SyncSecuritySection() {
       </Section>
 
       {showSetPin && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center">
+        <Modal ariaLabel="Set security PIN" className="p-0">
           <PinLockScreen
             isSettingPin={true}
             titleOverride={pinSetupPurpose === "backup_for_passkey" ? "Set Backup PIN" : "Set Security PIN"}
@@ -138,11 +139,11 @@ export function SyncSecuritySection() {
             }}
             onSuccess={() => {}}
           />
-        </div>
+        </Modal>
       )}
 
       {showVerifyPin && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center">
+        <Modal ariaLabel="Verify security PIN" className="p-0">
           <PinLockScreen
             isSettingPin={false}
             onSuccess={() => {
@@ -153,13 +154,13 @@ export function SyncSecuritySection() {
               setShowVerifyPin(false);
             }}
           />
-        </div>
+        </Modal>
       )}
 
       {/* Lock Choice Modal */}
       {showLockChoiceModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[var(--bg-surface)] border-2 border-[var(--border-strong)] rounded-[16px] p-6 shadow-hard-lg flex flex-col gap-5">
+        <Modal ariaLabel="Enable device lock">
+          <div className="flex max-h-full w-full max-w-sm touch-auto flex-col gap-5 overflow-y-auto rounded-[16px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-hard-lg">
             <div className="text-center flex flex-col items-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-[10px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface-sunken)] text-[var(--accent-primary)] mb-3 shadow-hard-sm">
                 <Fingerprint className="h-6 w-6 animate-pulse" />
@@ -226,13 +227,13 @@ export function SyncSecuritySection() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Passkey Setup Error Modal */}
       {showPasskeySetupErrorModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[var(--bg-surface)] border-2 border-[var(--border-strong)] rounded-[16px] p-6 shadow-hard-lg flex flex-col gap-4">
+        <Modal ariaLabel="Passkey setup error">
+          <div className="flex max-h-full w-full max-w-sm touch-auto flex-col gap-4 overflow-y-auto rounded-[16px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-hard-lg">
             <div className="text-center flex flex-col items-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-[10px] border-2 border-yellow-500/20 bg-yellow-500/10 text-yellow-500 mb-3">
                 <AlertTriangle className="h-6 w-6" />
@@ -274,7 +275,7 @@ export function SyncSecuritySection() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

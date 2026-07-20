@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { Wallet, WalletType } from "@/lib/db";
+import { Modal } from "@/components/maal/Modal";
 import { 
   X, 
   Upload, 
@@ -32,16 +33,19 @@ interface WalletFormDialogProps {
     accountNumber: string;
     accountHolder: string;
     logoUrl?: string;
+    balance?: number;
   }) => void;
   wallet?: Wallet | null;
+  currentBalance?: number;
 }
 
-export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFormDialogProps) {
+export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet, currentBalance }: WalletFormDialogProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<WalletType>("other");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolder, setAccountHolder] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [balance, setBalance] = useState("");
 
   useEffect(() => {
     if (wallet) {
@@ -50,14 +54,16 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
       setAccountNumber(wallet.accountNumber || "");
       setAccountHolder(wallet.accountHolder || "");
       setLogoUrl(wallet.logoUrl || "");
+      setBalance(String(currentBalance ?? 0));
     } else {
       setName("");
       setType("other");
       setAccountNumber("");
       setAccountHolder("");
       setLogoUrl("");
+      setBalance("");
     }
-  }, [wallet, isOpen]);
+  }, [wallet, isOpen, currentBalance]);
 
   if (!isOpen) return null;
 
@@ -86,19 +92,20 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
       accountNumber: accountNumber.trim(),
       accountHolder: accountHolder.trim(),
       logoUrl: logoUrl || undefined,
+      balance: wallet ? Number(balance || 0) : undefined,
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+    <Modal ariaLabel={wallet ? "Edit wallet" : "Add wallet"}>
       <div
-        className="shadow-hard-lg w-full max-w-md rounded-[20px] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150"
+        className="shadow-hard-lg flex max-h-full w-full max-w-md touch-auto flex-col rounded-[20px] animate-in fade-in zoom-in-95 duration-150"
         style={{
           background: "var(--bg-surface)",
           border: "2px solid var(--border-strong)",
         }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between p-6 pb-4">
           <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-display)" }}>
             {wallet ? "Edit Wallet" : "Add Wallet"}
           </h2>
@@ -114,25 +121,26 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
-              Wallet Name
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Commercial Savings, Pocket Cash"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-[10px] px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-500 animate-none"
-              style={{
-                background: "var(--bg-surface-sunken)",
-                color: "var(--text-primary)",
-                border: "2px solid var(--border-subtle)",
-              }}
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 touch-pan-y space-y-4 overflow-y-auto overscroll-contain px-6 pr-5">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
+                Wallet Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Commercial Savings, Pocket Cash"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-[10px] px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-500 animate-none"
+                style={{
+                  background: "var(--bg-surface-sunken)",
+                  color: "var(--text-primary)",
+                  border: "2px solid var(--border-subtle)",
+                }}
+                required
+              />
+            </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
@@ -198,6 +206,27 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
             />
           </div>
 
+          {wallet && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
+                Balance
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                value={balance}
+                onChange={(e) => setBalance(e.target.value)}
+                className="w-full rounded-[10px] px-3 py-2.5 text-sm outline-none"
+                style={{
+                  background: "var(--bg-surface-sunken)",
+                  color: "var(--text-primary)",
+                  border: "2px solid var(--border-subtle)",
+                }}
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-secondary)" }}>
               Custom Logo (Optional)
@@ -246,7 +275,9 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          </div>
+
+          <div className="flex shrink-0 gap-3 p-6 pt-4">
             <button
               type="button"
               onClick={onClose}
@@ -263,6 +294,6 @@ export function WalletFormDialog({ isOpen, onClose, onSubmit, wallet }: WalletFo
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

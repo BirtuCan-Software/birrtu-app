@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "@/lib/router";
 import { X } from "lucide-react";
+import { Modal } from "@/components/maal/Modal";
 import { useTx } from "@/lib/tx-store";
 import type { Account, TxType } from "@/lib/db";
 
@@ -46,37 +47,42 @@ export default function AddTx() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: "var(--bg-base)" }}
-    >
-      <header
-        className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+    <Modal ariaLabel="New transaction">
+      <div
+        className="shadow-hard-lg flex max-h-full w-full max-w-[720px] touch-auto flex-col rounded-[20px]"
+        style={{
+          background: "var(--bg-base)",
+          border: "2px solid var(--border-strong)",
+        }}
       >
-        <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-          New transaction
-        </h1>
-        <button
-          type="button"
-          onClick={() => nav({ to: "/" })}
-          aria-label="Close"
-          className="rounded-[6px] p-2 cursor-pointer transition-transform active:scale-95"
-          style={{
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-          }}
+        <header
+          className="flex shrink-0 items-center justify-between px-4 py-3"
+          style={{ borderBottom: "1px solid var(--border-subtle)" }}
         >
-          <X size={18} />
-        </button>
-      </header>
+          <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+            New transaction
+          </h1>
+          <button
+            type="button"
+            onClick={() => nav({ to: "/" })}
+            aria-label="Close"
+            className="rounded-[6px] p-2 cursor-pointer transition-transform active:scale-95"
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <X size={18} />
+          </button>
+        </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-5 overflow-auto p-4"
-      >
-        {/* Type selector */}
-        <div className="grid grid-cols-3 gap-2">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+        <div className="min-h-0 flex-1 touch-pan-y space-y-5 overflow-y-auto overscroll-contain p-4">
+          {/* Type selector */}
+          <div className="grid grid-cols-3 gap-2">
           {TYPES.map((t) => {
             const active = t.value === type;
             return (
@@ -213,7 +219,9 @@ export default function AddTx() {
           />
         </div>
 
-        <div className="mt-auto flex gap-3 pt-4">
+        </div>
+
+        <div className="flex shrink-0 gap-3 border-t border-[var(--border-subtle)] p-4">
           <button
             type="button"
             onClick={() => nav({ to: "/" })}
@@ -229,7 +237,8 @@ export default function AddTx() {
             {submitting ? "Saving…" : "Save"}
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </Modal>
   );
 }

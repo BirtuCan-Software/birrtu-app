@@ -68,7 +68,7 @@
 /* Tangelo Neon — Dark (default) */
 :root,
 [data-preset="tangelo"][data-mode="dark"] {
-  --bg-base: #0a0b0f;
+  --bg-base: color-mix(in srgb, #0a0b0f 94%, var(--accent-primary) 6%);
   --bg-surface: #15171d;
   --bg-surface-raised: #1e212a;
   --bg-surface-sunken: #0d0e12;
@@ -132,7 +132,7 @@
 
 /* Arctic Pulse — Blue-led */
 [data-preset="arctic"][data-mode="dark"] {
-  --bg-base: #0a0d14;
+  --bg-base: color-mix(in srgb, #0a0d14 94%, var(--accent-primary) 6%);
   --bg-surface: #131822;
   --bg-surface-raised: #1c2231;
   --bg-surface-sunken: #0d1119;
@@ -195,7 +195,7 @@
 
 /* Amethyst Glow — Purple & Magenta, dark and light */
 [data-preset="solar"][data-mode="dark"] {
-  --bg-base: #0d0914;
+  --bg-base: color-mix(in srgb, #0d0914 94%, var(--accent-primary) 6%);
   --bg-surface: #171222;
   --bg-surface-raised: #221a30;
   --bg-surface-sunken: #08050d;
@@ -258,7 +258,7 @@
 
 /* Obsidian Mono — Dark only, grayscale (color reserved for semantic) */
 [data-preset="obsidian"] {
-  --bg-base: #050506;
+  --bg-base: color-mix(in srgb, #050506 94%, var(--accent-primary) 6%);
   --bg-surface: #0f1013;
   --bg-surface-raised: #17181c;
   --bg-surface-sunken: #08090b;
@@ -340,7 +340,8 @@
   }
 
   html,
-  body {
+  body,
+  #root {
     background-color: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-body);
@@ -348,13 +349,56 @@
     -webkit-font-smoothing: antialiased;
     height: 100dvh;
     overflow: hidden;
+    touch-action: manipulation;
   }
   body {
     height: 100dvh;
   }
+
+  main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    contain: layout paint;
+  }
+
+  .modal-layer {
+    position: fixed;
+    box-sizing: border-box;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    overflow: hidden;
+    border: 0;
+    background: rgb(0 0 0 / 80%);
+    color: var(--text-primary);
+    touch-action: none;
+  }
+
+  .modal-layer[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-layer::backdrop {
+    background: rgb(0 0 0 / 80%);
+  }
+
   .tabular {
     font-variant-numeric: tabular-nums;
     font-family: var(--font-numeric);
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  .backdrop-blur-xs {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 

@@ -178,11 +178,11 @@ export function PinLockScreen({
   const activeInputLength = step === "enter" ? pin.length : confirmPin.length;
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] text-[var(--text-primary)] p-4 sm:p-6 font-sans">
+    <div className="flex h-full min-h-0 w-full items-start justify-center overflow-y-auto bg-[var(--bg-base)] p-4 font-sans text-[var(--text-primary)] sm:p-6">
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full max-w-sm bg-[var(--bg-surface)] border-2 border-[var(--border-strong)] rounded-[16px] p-6 shadow-hard-lg flex flex-col gap-6 items-center"
+        className="my-auto flex w-full max-w-sm shrink-0 flex-col items-center gap-6 rounded-[16px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-hard-lg"
       >
         {/* Passkey UI Mode */}
         {lockType === "passkey" && !showPinFallback ? (

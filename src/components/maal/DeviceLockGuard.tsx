@@ -11,14 +11,28 @@ export function DeviceLockGuard({ children }: DeviceLockGuardProps) {
   const { settings } = useSettings();
   const [isUnlocked, setIsUnlocked] = useState(false);
 
-  // If device lock is disabled, keep unlocked state
   useEffect(() => {
     if (!settings.deviceLock) {
       setIsUnlocked(true);
-    } else {
-      // If lock was enabled and we didn't unlock yet, ensure we show lock screen
-      // (This applies when settings are loaded/restored and device lock becomes enabled)
+      return;
     }
+    setIsUnlocked(false);
+  }, [settings.deviceLock]);
+
+  useEffect(() => {
+    if (!settings.deviceLock) return;
+    const lock = () => setIsUnlocked(false);
+    const onVisibility = () => {
+      if (document.hidden) lock();
+    };
+    window.addEventListener("blur", lock);
+    window.addEventListener("pagehide", lock);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("blur", lock);
+      window.removeEventListener("pagehide", lock);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [settings.deviceLock]);
 
   if (settings.deviceLock && !isUnlocked) {

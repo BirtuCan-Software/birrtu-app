@@ -41,6 +41,7 @@ export function SyncBadge() {
         const res = await googleSignIn();
         if (res.success) {
           setIsOpen(false);
+          window.location.reload();
         } else {
           setSyncFeedback({
             type: "error",
@@ -55,6 +56,7 @@ export function SyncBadge() {
         type: "success",
         message: "Financial records successfully backed up and synchronized with your secure Google Drive!",
       });
+      window.location.reload();
     } catch (err) {
       setSyncFeedback({
         type: "error",

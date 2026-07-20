@@ -28,7 +28,7 @@ interface Ctx {
   balances: Record<string, number>;
   netBalance: number;
   addWallet: (w: Omit<Wallet, "id">) => void;
-  updateWallet: (id: string, w: Partial<Wallet>) => void;
+  updateWallet: (id: string, w: Partial<Wallet>, targetBalance?: number) => Promise<void>;
   deleteWallet: (id: string) => void;
   restoreBackup: (txs: Transaction[], wallets?: Wallet[]) => Promise<void>;
 }
@@ -60,7 +60,7 @@ function computeBalances(txs: Transaction[], wallets: Wallet[]) {
 
 export function TxProvider({ children }: { children: ReactNode; key?: React.Key }) {
   const { activeAccountId, token, googleSignIn, user } = useAccount();
-  const { settings } = useSettings();
+  const { settings, update: updateSettings } = useSettings();
   
   if (!activeAccountId) {
     throw new Error("TxProvider requires activeAccountId from AccountProvider");
@@ -68,6 +68,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
 
   const walletsKey = `maal-wallets-v1-${activeAccountId}`;
   const lastSyncKey = `maal-last-sync-${activeAccountId}`;
+  const syncKey = user && !user.isGuest ? user.id : activeAccountId;
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>(() => {
@@ -140,14 +141,16 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
     }
 
     // 1. Fetch remote sync data
-    const { fileId, data: remoteData } = await getSyncFile(currentToken, activeAccountId);
+    const { fileId, data: remoteData } = await getSyncFile(currentToken, syncKey);
 
     const localTxs = await listAllRawTransactions(activeAccountId);
     const localWallets = wallets;
     const nowStr = new Date().toISOString();
+    const hasSyncedBefore = !!localStorage.getItem(lastSyncKey);
 
     let mergedTxs: Transaction[] = [];
     let mergedWallets: Wallet[] = [];
+    let mergedSettings = settings;
 
     if (!remoteData) {
       // Remote file doesn't exist. Initial Sync / backup!
@@ -166,6 +169,9 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
 
       mergedTxs = updatedLocalTxs;
       mergedWallets = localWallets;
+    } else if (!hasSyncedBefore) {
+      mergedTxs = remoteData.transactions || [];
+      mergedWallets = remoteData.wallets?.length ? remoteData.wallets : localWallets;
     } else {
       // Incremental Sync and Conflict Resolution!
       const remoteTxs = remoteData.transactions || [];
@@ -230,6 +236,16 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
       mergedWallets = Array.from(walletMap.values());
     }
 
+    if (remoteData?.settings) {
+      const remoteSettings = { ...settings, ...remoteData.settings };
+      const remoteTime = new Date(remoteSettings.updatedAt || 0).getTime();
+      const localTime = new Date(settings.updatedAt || 0).getTime();
+      if (!hasSyncedBefore || remoteTime > localTime) {
+        mergedSettings = remoteSettings;
+        updateSettings(mergedSettings);
+      }
+    }
+
     // 2. Clear local and import merged transactions as synced
     await clearAndImportTransactions(activeAccountId, mergedTxs);
 
@@ -237,10 +253,11 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
     setWallets(mergedWallets);
 
     // 4. Save to Google Drive
-    await saveSyncFile(currentToken, activeAccountId, fileId, {
+    await saveSyncFile(currentToken, syncKey, fileId, {
       activeAccountId,
       wallets: mergedWallets,
       transactions: mergedTxs,
+      settings: mergedSettings,
       lastSyncedAt: nowStr,
     });
 
@@ -249,7 +266,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
     setLastSyncedAt(nowStr);
 
     await refresh();
-  }, [activeAccountId, token, user, googleSignIn, lastSyncKey, refresh, wallets]);
+  }, [activeAccountId, token, user, googleSignIn, lastSyncKey, refresh, wallets, settings, syncKey, updateSettings]);
 
   // Auto Sync effect
   useEffect(() => {
@@ -266,10 +283,22 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
     setWallets((prev) => [...prev, newWallet]);
   };
 
-  const updateWallet = (id: string, w: Partial<Wallet>) => {
+  const updateWallet = async (id: string, w: Partial<Wallet>, targetBalance?: number) => {
     setWallets((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...w } : item))
     );
+    if (targetBalance === undefined || Number.isNaN(targetBalance)) return;
+    const current = balances[id] || 0;
+    const delta = targetBalance - current;
+    if (Math.abs(delta) < 0.005) return;
+    await dbAdd(activeAccountId, {
+      amount: Math.abs(delta),
+      type: delta >= 0 ? "income" : "expense",
+      account: id,
+      description: "Manual balance adjustment",
+      timestamp: new Date().toISOString(),
+    });
+    await refresh();
   };
 
   const deleteWallet = (id: string) => {

@@ -3,6 +3,7 @@ import { useTx } from "@/lib/tx-store";
 import { TxRow } from "@/components/maal/TxRow";
 import { TrendChart, type TrendInterval } from "@/components/maal/TrendChart";
 import { TrendingUp, X, Receipt } from "lucide-react";
+import { Modal } from "@/components/maal/Modal";
 
 export default function TxList() {
   const { transactions } = useTx();
@@ -73,15 +74,15 @@ export default function TxList() {
 
       {/* Pop-able Screen Overlay Dialog */}
       {isChartOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+        <Modal ariaLabel={`${currentLabel} trends`}>
           <div
-            className="shadow-hard-lg w-full max-w-lg rounded-[20px] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150"
+            className="shadow-hard-lg flex max-h-full w-full max-w-lg touch-auto flex-col rounded-[20px] animate-in fade-in zoom-in-95 duration-150"
             style={{
               background: "var(--bg-surface)",
               border: "2px solid var(--border-strong)",
             }}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between p-6 pb-4">
               <h2 className="text-lg font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-display)" }}>
                 <TrendingUp size={18} className="text-[var(--accent-primary)]" />
                 {currentLabel} Trends
@@ -98,39 +99,41 @@ export default function TxList() {
               </button>
             </div>
 
-            {/* Segmented control toggle for Intervals */}
-            <div
-              className="flex gap-1 p-1 rounded-[12px] items-center"
-              style={{
-                background: "var(--bg-surface-sunken)",
-                border: "1px solid var(--border-subtle)",
-              }}
-            >
-              {intervals.map((opt) => {
-                const active = opt.value === interval;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setInterval(opt.value)}
-                    className="flex-1 py-1.5 text-xs font-bold rounded-[8px] cursor-pointer transition-all text-center select-none"
-                    style={{
-                      background: active ? "var(--bg-surface)" : "transparent",
-                      color: active ? "var(--accent-primary)" : "var(--text-secondary)",
-                      border: `1px solid ${active ? "var(--border-subtle)" : "transparent"}`,
-                      boxShadow: active ? "1px 1px 0 0 rgba(0, 0, 0, 0.05)" : "none",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
+            <div className="min-h-0 flex-1 touch-pan-y space-y-4 overflow-y-auto overscroll-contain px-6">
+              {/* Segmented control toggle for Intervals */}
+              <div
+                className="flex gap-1 p-1 rounded-[12px] items-center"
+                style={{
+                  background: "var(--bg-surface-sunken)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                {intervals.map((opt) => {
+                  const active = opt.value === interval;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setInterval(opt.value)}
+                      className="flex-1 py-1.5 text-xs font-bold rounded-[8px] cursor-pointer transition-all text-center select-none"
+                      style={{
+                        background: active ? "var(--bg-surface)" : "transparent",
+                        color: active ? "var(--accent-primary)" : "var(--text-secondary)",
+                        border: `1px solid ${active ? "var(--border-subtle)" : "transparent"}`,
+                        boxShadow: active ? "1px 1px 0 0 rgba(0, 0, 0, 0.05)" : "none",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="p-1">
+                <TrendChart interval={interval} />
+              </div>
             </div>
 
-            <div className="p-1">
-              <TrendChart interval={interval} />
-            </div>
-
-            <div className="flex justify-end pt-2">
+            <div className="flex shrink-0 justify-end p-6 pt-4">
               <button
                 type="button"
                 onClick={() => setIsChartOpen(false)}
@@ -140,9 +143,8 @@ export default function TxList() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
 }
-

@@ -6,6 +6,7 @@ export function AppStatusSection() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showManualInstallGuide, setShowManualInstallGuide] = useState(false);
+  const [installMessage, setInstallMessage] = useState("");
 
   useEffect(() => {
     const checkStandalone = () => {
@@ -27,28 +28,27 @@ export function AppStatusSection() {
 
     window.addEventListener("pwa-install-available", handleInstallAvailable);
     
-    const handleBeforePrompt = (e: Event) => {
-      setDeferredPrompt(e);
-    };
-    window.addEventListener("beforeinstallprompt", handleBeforePrompt);
-
     return () => {
       window.removeEventListener("pwa-install-available", handleInstallAvailable);
-      window.removeEventListener("beforeinstallprompt", handleBeforePrompt);
     };
   }, []);
 
   const handleInstallApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`PWA install outcome: ${outcome}`);
+    const prompt = deferredPrompt || (window as any).deferredPrompt;
+    if (prompt) {
+      setInstallMessage("");
+      await prompt.prompt();
+      const { outcome } = await prompt.userChoice;
       if (outcome === "accepted") {
         setDeferredPrompt(null);
         (window as any).deferredPrompt = null;
+      } else {
+        setShowManualInstallGuide(true);
+        setInstallMessage("Install was dismissed. You can still install manually with the steps below.");
       }
     } else {
-      setShowManualInstallGuide((prev) => !prev);
+      setShowManualInstallGuide(true);
+      setInstallMessage("Native install prompt is not available in this browser right now. Use the steps below.");
     }
   };
 
@@ -112,6 +112,12 @@ export function AppStatusSection() {
                 Install BirrTu PWA Application
               </button>
 
+              {installMessage && (
+                <p className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                  {installMessage}
+                </p>
+              )}
+
               {/* iOS / General Browser Help if not installable and not standalone */}
               {(!deferredPrompt || showManualInstallGuide) && (
                 <div
@@ -126,24 +132,24 @@ export function AppStatusSection() {
                   </p>
                   
                   <div className="space-y-2">
-                    <div className="p-2.5 rounded-lg bg-zinc-950/40 border border-zinc-800/40 space-y-1">
-                      <div className="font-bold text-zinc-200">Apple iOS (Safari)</div>
+                    <div className="p-2.5 rounded-lg border space-y-1 bg-[var(--bg-surface)] border-[var(--border-subtle)]">
+                      <div className="font-bold text-[var(--text-primary)]">Apple iOS (Safari)</div>
                       <p style={{ color: "var(--text-secondary)" }} className="text-[11px] leading-normal">
-                        Tap the <strong className="text-[var(--accent-primary)] font-bold">Share button</strong> at the bottom/top of Safari, scroll down, and select <strong className="text-zinc-200 font-bold">"Add to Home Screen"</strong>.
+                        Tap the <strong className="text-[var(--accent-primary)] font-bold">Share button</strong> at the bottom/top of Safari, scroll down, and select <strong className="text-[var(--text-primary)] font-bold">"Add to Home Screen"</strong>.
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-zinc-950/40 border border-zinc-800/40 space-y-1">
-                      <div className="font-bold text-zinc-200">Google Chrome / Microsoft Edge</div>
+                    <div className="p-2.5 rounded-lg border space-y-1 bg-[var(--bg-surface)] border-[var(--border-subtle)]">
+                      <div className="font-bold text-[var(--text-primary)]">Google Chrome / Microsoft Edge</div>
                       <p style={{ color: "var(--text-secondary)" }} className="text-[11px] leading-normal">
-                        Look for the <strong className="text-[var(--accent-primary)] font-bold">Install icon</strong> in the right side of your URL search bar, or open the browser menu (three dots) and choose <strong className="text-zinc-200 font-bold">"Install App"</strong>.
+                        Look for the <strong className="text-[var(--accent-primary)] font-bold">Install icon</strong> in the right side of your URL search bar, or open the browser menu (three dots) and choose <strong className="text-[var(--text-primary)] font-bold">"Install App"</strong>.
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-zinc-950/40 border border-zinc-800/40 space-y-1">
-                      <div className="font-bold text-zinc-200">Mozilla Firefox / Other Browsers</div>
+                    <div className="p-2.5 rounded-lg border space-y-1 bg-[var(--bg-surface)] border-[var(--border-subtle)]">
+                      <div className="font-bold text-[var(--text-primary)]">Mozilla Firefox / Other Browsers</div>
                       <p style={{ color: "var(--text-secondary)" }} className="text-[11px] leading-normal">
-                        Tap the menu button (three dots) and select <strong className="text-zinc-200 font-bold">"Add to Home screen"</strong> or <strong className="text-zinc-200 font-bold">"Install"</strong>.
+                        Tap the menu button (three dots) and select <strong className="text-[var(--text-primary)] font-bold">"Add to Home screen"</strong> or <strong className="text-[var(--text-primary)] font-bold">"Install"</strong>.
                       </p>
                     </div>
                   </div>

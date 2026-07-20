@@ -12,6 +12,7 @@ export interface Settings {
   autoSync: boolean;
   deviceLock: boolean;
   timeFormat: "12hr" | "24hr";
+  updatedAt: string;
 }
 
 const DEFAULTS: Settings = {
@@ -21,6 +22,7 @@ const DEFAULTS: Settings = {
   autoSync: false,
   deviceLock: false,
   timeFormat: "12hr",
+  updatedAt: "1970-01-01T00:00:00.000Z",
 };
 
 interface Ctx {
@@ -66,7 +68,7 @@ export function SettingsProvider({ children }: { children: ReactNode; key?: Reac
   }, [settings, ready, accountKey]);
 
   const update = (patch: Partial<Settings>) =>
-    setSettings((s) => ({ ...s, ...patch }));
+    setSettings((s) => ({ ...s, ...patch, updatedAt: patch.updatedAt || new Date().toISOString() }));
 
   return (
     <SettingsCtx.Provider value={{ settings, update }}>

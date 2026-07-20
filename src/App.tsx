@@ -16,6 +16,18 @@ import TxList from "@/routes/transactions";
 import SettingsPage from "@/routes/settings";
 import WalletsPage from "@/routes/wallets";
 
+function getScrollableParent(el: EventTarget | null): HTMLElement | null {
+  let node = el instanceof HTMLElement ? el : null;
+  while (node && node !== document.body) {
+    const style = window.getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 function AppContent() {
   const { location } = useRouterState();
   const path = location.pathname;
@@ -30,15 +42,36 @@ function AppContent() {
   }, [path]);
 
   useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      (window as any).deferredPrompt = e;
-      window.dispatchEvent(new CustomEvent("pwa-install-available"));
+    let startY = 0;
+    let canRefresh = false;
+    let pulled = false;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const scroller = getScrollableParent(e.target) || mainRef.current;
+      startY = e.touches[0]?.clientY || 0;
+      canRefresh = startY <= 90 && (!scroller || scroller.scrollTop <= 0);
+      pulled = false;
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!canRefresh) return;
+      const deltaY = (e.touches[0]?.clientY || 0) - startY;
+      if (deltaY > 100) pulled = true;
+    };
+
+    const onTouchEnd = () => {
+      if (pulled) window.location.reload();
+      canRefresh = false;
+      pulled = false;
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd);
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, []);
 
