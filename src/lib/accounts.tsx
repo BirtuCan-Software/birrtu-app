@@ -67,6 +67,7 @@ interface AccountCtx {
   activeAccountId: string | null;
   alwaysAsk: boolean;
   addAccount: (name: string) => { success: boolean; error?: string };
+  importAccount: (name: string) => { success: boolean; error?: string; account?: AppAccount };
   renameAccount: (id: string, newName: string) => void;
   deleteAccount: (id: string) => void;
   switchAccount: (id: string) => void;
@@ -281,6 +282,25 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
+  const importAccount = (name: string) => {
+    if (!user) return { success: false, error: "Not logged in." };
+    const trimmed = name.trim() || "Imported Workspace";
+    const newWorkspace: AppAccount = {
+      id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
+      name: trimmed,
+      createdAt: new Date().toISOString(),
+      userId: user.id,
+    };
+
+    const updatedWks = [...accounts, newWorkspace];
+    setAccounts(updatedWks);
+
+    const wkKey = `${WORKSPACES_KEY_PREFIX}${user.id}`;
+    localStorage.setItem(wkKey, JSON.stringify(updatedWks));
+
+    return { success: true, account: newWorkspace };
+  };
+
   const renameAccount = (id: string, newName: string) => {
     if (!user) return;
     const trimmed = newName.trim();
@@ -326,7 +346,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const switchAccount = (id: string) => {
     if (!user) return;
-    if (accounts.some((w) => w.id === id)) {
+    const wkKey = `${WORKSPACES_KEY_PREFIX}${user.id}`;
+    let storedAccounts: AppAccount[] = accounts;
+    try {
+      const stored = localStorage.getItem(wkKey);
+      storedAccounts = stored ? JSON.parse(stored) : accounts;
+    } catch {
+      storedAccounts = accounts;
+    }
+
+    if (storedAccounts.some((w) => w.id === id)) {
       setActiveAccountId(id);
       const activeKey = `${ACTIVE_WORKSPACE_KEY_PREFIX}${user.id}`;
       localStorage.setItem(activeKey, id);
@@ -360,6 +389,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         activeAccountId,
         alwaysAsk: false,
         addAccount,
+        importAccount,
         renameAccount,
         deleteAccount,
         switchAccount,

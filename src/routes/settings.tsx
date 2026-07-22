@@ -25,7 +25,7 @@ export default function SettingsPage() {
       {/* Sync & security */}
       <SyncSecuritySection />
 
-      {/* PDF Backup & Restore */}
+      {/* Workspace export */}
       <BackupRestoreSection />
 
       {/* Native App Status & About */}
