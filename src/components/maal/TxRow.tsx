@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import type { Transaction } from "@/lib/db";
 import { accountLabel, formatETB, timeAgo, formatDateTime } from "@/lib/format";
-import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Trash2 } from "lucide-react";
+import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Pencil, Trash2 } from "lucide-react";
 import { useTx } from "@/lib/tx-store";
 import { useSettings } from "@/lib/settings";
 import { Modal } from "@/components/maal/Modal";
 import { motion, useAnimation, useMotionValue, useTransform } from "motion/react";
+import AddTx from "@/routes/add";
 
 export interface TxRowProps {
   tx: Transaction;
@@ -18,6 +19,7 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
   const { removeTx, wallets } = useTx();
   const [willDelete, setWillDelete] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const controls = useAnimation();
   const x = useMotionValue(0);
 
@@ -138,14 +140,24 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
           </div>
         </div>
         <button
+          onClick={() => setShowEdit(true)}
+          aria-label="Edit"
+          className="ml-1 rounded-[6px] p-2 cursor-pointer transition-colors hover:text-[var(--accent-primary)] shrink-0"
+          style={{ color: "var(--text-disabled)" }}
+        >
+          <Pencil size={16} />
+        </button>
+        <button
           onClick={triggerDelete}
           aria-label="Delete"
-          className="ml-1 rounded-[6px] p-2 cursor-pointer transition-colors hover:text-red-500 shrink-0"
+          className="rounded-[6px] p-2 cursor-pointer transition-colors hover:text-red-500 shrink-0"
           style={{ color: "var(--text-disabled)" }}
         >
           <Trash2 size={16} />
         </button>
       </motion.div>
+
+      {showEdit && <AddTx transaction={tx} onClose={() => setShowEdit(false)} />}
 
       {/* Confirmation Dialog Overlay */}
       {showConfirm && (

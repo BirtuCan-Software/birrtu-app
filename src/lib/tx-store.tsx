@@ -11,6 +11,7 @@ import React, {
 import {
   addTransaction as dbAdd,
   deleteTransaction as dbDelete,
+  updateTransaction as dbUpdate,
   listTransactions,
   pendingCount as dbPending,
   clearAndImportTransactions,
@@ -85,6 +86,10 @@ interface Ctx {
   syncError: string | null;
   firstSyncDecision: FirstSyncDecision | null;
   addTx: (t: Omit<Transaction, "id" | "sync_status" | "last_updated">) => Promise<void>;
+  updateTx: (
+    id: string,
+    t: Omit<Transaction, "id" | "sync_status" | "last_updated" | "deleted" | "origin_device_id">,
+  ) => Promise<void>;
   removeTx: (id: string) => Promise<void>;
   syncNow: (resolution?: FirstSyncResolution) => Promise<SyncResult>;
   cancelFirstSync: () => void;
@@ -243,6 +248,11 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
 
   const addTx: Ctx["addTx"] = async (transaction) => {
     await dbAdd(activeAccountId, transaction, localDeviceId);
+    await refresh();
+  };
+
+  const updateTx: Ctx["updateTx"] = async (id, transaction) => {
+    await dbUpdate(activeAccountId, id, transaction, localDeviceId);
     await refresh();
   };
 
@@ -651,6 +661,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
         syncError,
         firstSyncDecision,
         addTx,
+        updateTx,
         removeTx,
         syncNow,
         cancelFirstSync: () => {

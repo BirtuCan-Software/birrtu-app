@@ -19,6 +19,13 @@ export interface Wallet {
 export type TxType = "income" | "expense" | "transfer";
 export type SyncStatus = "synced" | "pending_insert" | "pending_delete";
 
+export interface TransactionItem {
+  id: string;
+  label: string;
+  price: number;
+  quantity: number;
+}
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -26,6 +33,7 @@ export interface Transaction {
   account: Account;
   toAccount?: Account; // transfers
   description: string;
+  items?: TransactionItem[];
   timestamp: string;
   sync_status: SyncStatus;
   last_updated: string;
@@ -82,6 +90,26 @@ export async function addTransaction(
   };
   await db.add("transactions", record);
   return record;
+}
+
+export async function updateTransaction(
+  accountId: string,
+  id: string,
+  patch: Omit<Transaction, "id" | "sync_status" | "last_updated" | "deleted" | "origin_device_id">,
+  deviceId?: string,
+) {
+  const db = await getDB(accountId);
+  const existing = await db.get("transactions", id);
+  if (!existing) return;
+  const now = new Date().toISOString();
+  await db.put("transactions", {
+    ...existing,
+    ...patch,
+    deleted: false,
+    sync_status: "pending_insert",
+    last_updated: now,
+    origin_device_id: deviceId || existing.origin_device_id,
+  });
 }
 
 export async function deleteTransaction(
