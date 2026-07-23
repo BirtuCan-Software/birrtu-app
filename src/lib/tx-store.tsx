@@ -138,6 +138,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
     activeAccountId,
     token,
     user,
+    invalidateDriveToken,
     workspaceRecords,
     reconcileWorkspaces,
   } = useAccount();
@@ -439,6 +440,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
         const message =
           error instanceof Error ? error.message : "Synchronization failed.";
         if (message === "UNAUTHORIZED") {
+          invalidateDriveToken();
           setSyncState("reconnect");
           return { status: "authorization_required" };
         }
@@ -451,6 +453,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
       activeAccountId,
       baselineKey,
       localDeviceId,
+      invalidateDriveToken,
       oldLastSyncKey,
       refresh,
       reconcileWorkspaces,

@@ -14,7 +14,12 @@ import {
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
-import { requestDriveAccessToken } from "./google-identity";
+import {
+  cacheDriveAccessToken,
+  clearDriveAccessToken,
+  requestDriveAccessToken,
+  restoreDriveAccessToken,
+} from "./google-identity";
 import { getDeviceId } from "./device-id";
 import {
   mergeWorkspaceCatalogs,
@@ -73,6 +78,7 @@ interface AccountCtx {
   isLoggingIn: boolean;
   googleSignIn: () => Promise<{ success: boolean; error?: string; token?: string }>;
   authorizeDrive: () => Promise<{ success: boolean; error?: string; token?: string }>;
+  invalidateDriveToken: () => void;
   guestSignIn: () => void;
   signUp: (username: string, phone: string, password: string) => { success: boolean; error?: string };
   login: (identifier: string, password: string) => { success: boolean; error?: string };
@@ -268,6 +274,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
           createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
         };
         setUser(mappedUser);
+        cachedAccessToken =
+          cachedAccessToken || restoreDriveAccessToken(mappedUser.email);
         setToken(cachedAccessToken);
         loadWorkspacesForUser(firebaseUser.uid);
       } else {
@@ -288,6 +296,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setToken(null);
           cachedAccessToken = null;
+          clearDriveAccessToken();
           setAccounts([]);
           setWorkspaceTombstones([]);
           setActiveAccountId(null);
@@ -317,6 +326,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       }
 
       cachedAccessToken = credential.accessToken;
+      cacheDriveAccessToken(cachedAccessToken, result.user.email || "");
       setToken(cachedAccessToken);
 
       const firebaseUser = result.user;
@@ -394,6 +404,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("birrtu_guest_logged_in");
       await signOut(auth);
       cachedAccessToken = null;
+      clearDriveAccessToken();
       setToken(null);
       setUser(null);
       setAccounts([]);
@@ -579,6 +590,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         isLoggingIn,
         googleSignIn,
         authorizeDrive,
+        invalidateDriveToken: () => {
+          cachedAccessToken = null;
+          clearDriveAccessToken();
+          setToken(null);
+        },
         guestSignIn,
         signUp,
         login,

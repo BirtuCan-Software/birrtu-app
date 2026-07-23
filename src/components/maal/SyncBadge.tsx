@@ -49,7 +49,6 @@ export function SyncBadge() {
         const res = await googleSignIn();
         if (res.success) {
           setIsOpen(false);
-          window.location.reload();
         } else {
           setSyncFeedback({
             type: "error",
