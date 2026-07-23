@@ -21,6 +21,7 @@ export function SyncSecuritySection() {
   const {
     accounts,
     activeAccountId,
+    authorizeDrive,
   } = useAccount();
 
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
@@ -36,7 +37,12 @@ export function SyncSecuritySection() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      await syncNow();
+      let result = await syncNow();
+      if (result.status === "authorization_required") {
+        const authorization = await authorizeDrive();
+        if (authorization.success) result = await syncNow();
+      }
+      if (result.status === "error") console.error(result.error);
     } catch (err) {
       console.error(err);
     } finally {
@@ -47,12 +53,12 @@ export function SyncSecuritySection() {
   return (
     <>
       <Section title="Sync & security">
-        <Toggle
-          checked={settings.autoSync}
-          onChange={(v) => update({ autoSync: v })}
-          label="Auto-sync"
-          hint="Sync on network when off, conserves mobile data"
-        />
+        <div className="mb-3 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface-sunken)] p-3">
+          <div className="text-sm font-semibold">Automatic sync</div>
+          <div className="text-xs text-[var(--text-secondary)]">
+            Changes sync automatically while Google Drive is connected.
+          </div>
+        </div>
         <Toggle
           checked={settings.deviceLock}
           onChange={(v) => {

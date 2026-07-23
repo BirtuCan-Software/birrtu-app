@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -7,6 +14,12 @@ import {
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
+import { requestDriveAccessToken } from "./google-identity";
+import { getDeviceId } from "./device-id";
+import {
+  mergeWorkspaceCatalogs,
+  type CloudWorkspace,
+} from "./workspace-sync";
 
 function getFirebaseConfig() {
   const config = {
@@ -45,8 +58,11 @@ export interface AppUser {
 
 export interface AppAccount {
   id: string;
+  syncId: string;
   name: string;
   createdAt: string;
+  updatedAt: string;
+  originDeviceId: string;
   userId: string;
 }
 
@@ -56,6 +72,7 @@ interface AccountCtx {
   token: string | null; // Cache the access token in memory.
   isLoggingIn: boolean;
   googleSignIn: () => Promise<{ success: boolean; error?: string; token?: string }>;
+  authorizeDrive: () => Promise<{ success: boolean; error?: string; token?: string }>;
   guestSignIn: () => void;
   signUp: (username: string, phone: string, password: string) => { success: boolean; error?: string };
   login: (identifier: string, password: string) => { success: boolean; error?: string };
@@ -64,6 +81,8 @@ interface AccountCtx {
 
   // Workspace/Account state
   accounts: AppAccount[];
+  workspaceRecords: CloudWorkspace[];
+  reconcileWorkspaces: (workspaces: CloudWorkspace[]) => void;
   activeAccountId: string | null;
   alwaysAsk: boolean;
   addAccount: (name: string) => { success: boolean; error?: string };
@@ -78,6 +97,7 @@ const AccountContext = createContext<AccountCtx | null>(null);
 
 const WORKSPACES_KEY_PREFIX = "maal-workspaces-v2-";
 const ACTIVE_WORKSPACE_KEY_PREFIX = "maal-active-workspace-v2-";
+const WORKSPACE_TOMBSTONES_KEY_PREFIX = "maal-workspace-tombstones-v1-";
 
 // In-memory access token cache
 let cachedAccessToken: string | null = null;
@@ -86,9 +106,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AppAccount[]>([]);
+  const [workspaceTombstones, setWorkspaceTombstones] = useState<CloudWorkspace[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [ready, setReady] = useState(false);
+  const accountsRef = useRef(accounts);
+  const workspaceTombstonesRef = useRef(workspaceTombstones);
+  accountsRef.current = accounts;
+  workspaceTombstonesRef.current = workspaceTombstones;
 
   // Load workspaces for specific user id
   const loadWorkspacesForUser = (userId: string) => {
@@ -96,6 +121,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const activeKey = `${ACTIVE_WORKSPACE_KEY_PREFIX}${userId}`;
 
     let wks: AppAccount[] = [];
+    const localDeviceId = getDeviceId();
     try {
       const stored = localStorage.getItem(wkKey);
       wks = stored ? JSON.parse(stored) : [];
@@ -104,15 +130,40 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
 
     if (wks.length === 0) {
+      const now = new Date().toISOString();
       wks = [
         {
           id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
+          syncId: "primary",
           name: "Primary Workspace",
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          // A freshly-created placeholder must not beat cloud metadata from an
+          // established primary workspace during first sync.
+          updatedAt: "1970-01-01T00:00:00.000Z",
+          originDeviceId: localDeviceId,
           userId,
         },
       ];
-      localStorage.setItem(wkKey, JSON.stringify(wks));
+    } else {
+      wks = wks.map((workspace, index) => ({
+        ...workspace,
+        syncId:
+          workspace.syncId ||
+          (index === 0
+            ? "primary"
+            : `workspace_${crypto.randomUUID().replace(/-/g, "")}`),
+        updatedAt: workspace.updatedAt || workspace.createdAt,
+        originDeviceId: workspace.originDeviceId || localDeviceId,
+      }));
+    }
+    localStorage.setItem(wkKey, JSON.stringify(wks));
+    try {
+      const tombstones = localStorage.getItem(
+        `${WORKSPACE_TOMBSTONES_KEY_PREFIX}${userId}`,
+      );
+      setWorkspaceTombstones(tombstones ? JSON.parse(tombstones) : []);
+    } catch {
+      setWorkspaceTombstones([]);
     }
     setAccounts(wks);
 
@@ -122,6 +173,84 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     } else {
       setActiveAccountId(wks[0].id);
       localStorage.setItem(activeKey, wks[0].id);
+    }
+  };
+
+  const workspaceRecords: CloudWorkspace[] = [
+    ...accounts.map(({ syncId, name, createdAt, updatedAt, originDeviceId }) => ({
+      syncId,
+      name,
+      createdAt,
+      updatedAt,
+      originDeviceId,
+      deleted: false,
+    })),
+    ...workspaceTombstones,
+  ];
+
+  const reconcileWorkspaces = (records: CloudWorkspace[]) => {
+    if (!user) return;
+    // Include the latest in-memory state so a workspace created, renamed, or
+    // deleted while a network round trip is in flight cannot be rolled back.
+    const latestLocalRecords: CloudWorkspace[] = [
+      ...accountsRef.current.map(
+        ({ syncId, name, createdAt, updatedAt, originDeviceId }) => ({
+          syncId,
+          name,
+          createdAt,
+          updatedAt,
+          originDeviceId,
+          deleted: false,
+        }),
+      ),
+      ...workspaceTombstonesRef.current,
+    ];
+    const resolvedRecords = mergeWorkspaceCatalogs(
+      [],
+      [...records, ...latestLocalRecords],
+    ).sort((a, b) => a.syncId.localeCompare(b.syncId));
+    const visible = resolvedRecords.filter((record) => !record.deleted);
+    const nextAccounts = visible.map((record) => {
+      const existing = accounts.find(
+        (workspace) => workspace.syncId === record.syncId,
+      );
+      return {
+        id:
+          existing?.id ||
+          `wk_${crypto.randomUUID().replace(/-/g, "")}`,
+        syncId: record.syncId,
+        name: record.name,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        originDeviceId: record.originDeviceId,
+        userId: user.id,
+      };
+    });
+    if (nextAccounts.length === 0) return;
+
+    const tombstones = resolvedRecords.filter((record) => record.deleted);
+    const wkKey = `${WORKSPACES_KEY_PREFIX}${user.id}`;
+    const activeKey = `${ACTIVE_WORKSPACE_KEY_PREFIX}${user.id}`;
+    const nextActive = nextAccounts.some(
+      (workspace) => workspace.id === activeAccountId,
+    )
+      ? activeAccountId
+      : nextAccounts[0].id;
+
+    if (JSON.stringify(nextAccounts) !== JSON.stringify(accounts)) {
+      setAccounts(nextAccounts);
+      localStorage.setItem(wkKey, JSON.stringify(nextAccounts));
+    }
+    if (JSON.stringify(tombstones) !== JSON.stringify(workspaceTombstones)) {
+      setWorkspaceTombstones(tombstones);
+      localStorage.setItem(
+        `${WORKSPACE_TOMBSTONES_KEY_PREFIX}${user.id}`,
+        JSON.stringify(tombstones),
+      );
+    }
+    if (nextActive !== activeAccountId) {
+      setActiveAccountId(nextActive);
+      localStorage.setItem(activeKey, nextActive || "");
     }
   };
 
@@ -160,6 +289,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
           setToken(null);
           cachedAccessToken = null;
           setAccounts([]);
+          setWorkspaceTombstones([]);
           setActiveAccountId(null);
         }
       }
@@ -210,6 +340,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const authorizeDrive = async () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return googleSignIn();
+
+    setIsLoggingIn(true);
+    try {
+      cachedAccessToken = await requestDriveAccessToken(clientId, user?.email);
+      setToken(cachedAccessToken);
+      return { success: true, token: cachedAccessToken };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Google Drive authorization failed.",
+      };
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const guestSignIn = () => {
     localStorage.setItem("birrtu_guest_logged_in", "true");
     const guestUser: AppUser = {
@@ -245,6 +397,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setUser(null);
       setAccounts([]);
+      setWorkspaceTombstones([]);
       setActiveAccountId(null);
     } catch (e) {
       console.error("Sign out error:", e);
@@ -262,10 +415,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Workspace limit of 3 reached." };
     }
 
+    const now = new Date().toISOString();
     const newWorkspace: AppAccount = {
       id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
+      syncId: `workspace_${crypto.randomUUID().replace(/-/g, "")}`,
       name: trimmed,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      originDeviceId: getDeviceId(),
       userId: user.id,
     };
 
@@ -285,10 +442,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const importAccount = (name: string) => {
     if (!user) return { success: false, error: "Not logged in." };
     const trimmed = name.trim() || "Imported Workspace";
+    const now = new Date().toISOString();
     const newWorkspace: AppAccount = {
       id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
+      syncId: `workspace_${crypto.randomUUID().replace(/-/g, "")}`,
       name: trimmed,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      originDeviceId: getDeviceId(),
       userId: user.id,
     };
 
@@ -306,7 +467,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const trimmed = newName.trim();
     if (!trimmed) return;
 
-    const updatedWks = accounts.map((w) => (w.id === id ? { ...w, name: trimmed } : w));
+    const updatedWks = accounts.map((w) =>
+      w.id === id
+        ? {
+            ...w,
+            name: trimmed,
+            updatedAt: new Date().toISOString(),
+            originDeviceId: getDeviceId(),
+          }
+        : w,
+    );
     setAccounts(updatedWks);
 
     const wkKey = `${WORKSPACES_KEY_PREFIX}${user.id}`;
@@ -315,6 +485,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const deleteAccount = (id: string) => {
     if (!user || accounts.length <= 1) return;
+
+    const deletedWorkspace = accounts.find((workspace) => workspace.id === id);
+    if (!deletedWorkspace) return;
+    const deletedAt = new Date().toISOString();
+    const nextTombstones = [
+      ...workspaceTombstones.filter(
+        (workspace) => workspace.syncId !== deletedWorkspace.syncId,
+      ),
+      {
+        syncId: deletedWorkspace.syncId,
+        name: deletedWorkspace.name,
+        createdAt: deletedWorkspace.createdAt,
+        updatedAt: deletedAt,
+        originDeviceId: getDeviceId(),
+        deleted: true,
+      },
+    ];
+    setWorkspaceTombstones(nextTombstones);
+    localStorage.setItem(
+      `${WORKSPACE_TOMBSTONES_KEY_PREFIX}${user.id}`,
+      JSON.stringify(nextTombstones),
+    );
 
     const filtered = accounts.filter((w) => w.id !== id);
     setAccounts(filtered);
@@ -336,6 +528,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(`maal-settings-v1-${id}`);
       localStorage.removeItem(`maal-wallets-v1-${id}`);
       localStorage.removeItem(`maal-last-sync-${id}`);
+      localStorage.removeItem(`maal-sync-baseline-v2-${id}`);
+      localStorage.removeItem(`maal-settings-sync-v2-${id}`);
+      localStorage.removeItem(`maal-device-pin-v1-${id}`);
+      localStorage.removeItem(`maal-device-pin-verifier-v1-${id}`);
+      localStorage.removeItem(`maal-device-passkey-id-v1-${id}`);
+      localStorage.removeItem(`maal-device-lock-type-v1-${id}`);
       if (typeof window !== "undefined" && window.indexedDB) {
         window.indexedDB.deleteDatabase(`maal-db-${id}`);
       }
@@ -380,12 +578,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         token,
         isLoggingIn,
         googleSignIn,
+        authorizeDrive,
         guestSignIn,
         signUp,
         login,
         updateProfile,
         logout: handleLogout,
         accounts,
+        workspaceRecords,
+        reconcileWorkspaces,
         activeAccountId,
         alwaysAsk: false,
         addAccount,

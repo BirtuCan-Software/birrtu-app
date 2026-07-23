@@ -47,7 +47,11 @@ Zero-setup presets custom-styled for key financial platforms in Ethiopia:
 Organize your life into independent financial scopes (e.g., *Personal*, *Freelance Business*, *Family Household*) and swap between workspaces with zero friction.
 
 ### ☁️ Secure, Hidden Google Drive Sync
-Toggle secure sync on or off. When enabled, your ledger state backs up incrementally inside your private Google Account's isolated `appdata` container—invisible to other files on your drive.
+Signed-in workspaces sync automatically through independent, per-device journals
+inside your Google Account's hidden `appDataFolder`. Wallets, transactions,
+settings, deletion tombstones, and portable PIN verifiers are merged only with
+records carrying the same stable workspace identity. Guest workspaces remain
+local-only.
 
 ### 📊 Beautiful Analytics & Interactive Statistics
 Interactive financial breakdown charts, dynamic spending category rings, and monthly budget trajectory trends to help you monitor cash flow at a glance.
@@ -107,6 +111,9 @@ VITE_FIREBASE_PROJECT_ID="your_firebase_project_id"
 VITE_FIREBASE_STORAGE_BUCKET="your_firebase_storage_bucket"
 VITE_FIREBASE_MESSAGING_SENDER_ID="your_firebase_messaging_sender_id"
 VITE_FIREBASE_APP_ID="your_firebase_app_id"
+
+# Google Identity Services OAuth web client (for Drive reconnection)
+VITE_GOOGLE_CLIENT_ID="your_google_oauth_web_client_id"
 ```
 If you want to override values locally without touching tracked files, create an ignored `.env.local` file.
 

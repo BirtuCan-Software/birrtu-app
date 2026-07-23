@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/maal/AppHeader";
 import { BottomNav } from "@/components/maal/BottomNav";
 import { AccountSelectionScreen } from "@/components/maal/AccountSelectionScreen";
 import { DeviceLockGuard } from "@/components/maal/DeviceLockGuard";
+import { FirstSyncDialog } from "@/components/maal/FirstSyncDialog";
 import { PolicyView } from "@/components/maal/auth/PolicyView";
 
 // Import page components
@@ -99,6 +100,7 @@ function AppContent() {
         {renderPage()}
       </main>
       {!hideChrome && <BottomNav />}
+      <FirstSyncDialog />
     </div>
   );
 }

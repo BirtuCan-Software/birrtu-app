@@ -3,6 +3,7 @@ import { useAccount } from "@/lib/accounts";
 import { motion, AnimatePresence } from "motion/react";
 import { Lock, Delete, LogOut, ShieldAlert, Fingerprint, Key, ExternalLink, ShieldCheck } from "lucide-react";
 import { authenticateLocalPasskey } from "@/lib/passkey";
+import { saveLocalPinVerifier, verifyLocalPin } from "@/lib/device-lock";
 
 interface PinLockScreenProps {
   onSuccess: () => void;
@@ -40,6 +41,7 @@ export function PinLockScreen({
   const [passkeyError, setPasskeyError] = useState("");
   const [isIframeRestricted, setIsIframeRestricted] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
   // Load lock type on mount
   useEffect(() => {
@@ -114,7 +116,15 @@ export function PinLockScreen({
     }
   }, [isSettingPin, lockType, showPinFallback]);
 
+  const rejectPin = (message: string) => {
+    setError(message);
+    setShake(true);
+    setPin("");
+    setTimeout(() => setShake(false), 500);
+  };
+
   const handleKeyPress = (num: string) => {
+    if (isVerifyingPin) return;
     setError("");
     if (step === "enter") {
       if (pin.length < 4) {
@@ -127,17 +137,18 @@ export function PinLockScreen({
             }, 200);
           } else {
             // Verify pin (could be active lock pin or fallback pin)
-            const storedPin = localStorage.getItem(savedPinKey);
-            if (nextPin === storedPin) {
-              onSuccess();
-            } else {
-              setTimeout(() => {
-                setError("Incorrect PIN. Please try again.");
-                setShake(true);
-                setPin("");
-                setTimeout(() => setShake(false), 500);
-              }, 200);
-            }
+            setIsVerifyingPin(true);
+            void verifyLocalPin(activeAccountId!, nextPin)
+              .then((valid) => {
+                if (valid) {
+                  localStorage.setItem(savedPinKey, nextPin);
+                  onSuccess();
+                } else {
+                  rejectPin("Incorrect PIN. Please try again.");
+                }
+              })
+              .catch(() => rejectPin("Unable to verify PIN. Please try again."))
+              .finally(() => setIsVerifyingPin(false));
           }
         }
       }
@@ -148,9 +159,11 @@ export function PinLockScreen({
         if (nextConfirm.length === 4) {
           if (pin === nextConfirm) {
             localStorage.setItem(savedPinKey, pin);
-            if (onSetPinSuccess) {
-              onSetPinSuccess(pin);
-            }
+            setIsVerifyingPin(true);
+            void saveLocalPinVerifier(activeAccountId!, pin)
+              .then(() => onSetPinSuccess?.(pin))
+              .catch(() => rejectPin("Unable to save PIN. Please try again."))
+              .finally(() => setIsVerifyingPin(false));
           } else {
             setTimeout(() => {
               setError("PINs do not match. Restarting...");
@@ -348,6 +361,7 @@ export function PinLockScreen({
                   key={num}
                   type="button"
                   onClick={() => handleKeyPress(num)}
+                  disabled={isVerifyingPin}
                   className="flex h-14 items-center justify-center rounded-[10px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface-sunken)] text-lg font-black shadow-hard-sm active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:brightness-105 transition-all cursor-pointer"
                   style={{ fontFamily: "var(--font-numeric)" }}
                 >
@@ -382,6 +396,7 @@ export function PinLockScreen({
               <button
                 type="button"
                 onClick={() => handleKeyPress("0")}
+                disabled={isVerifyingPin}
                 className="flex h-14 items-center justify-center rounded-[10px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface-sunken)] text-lg font-black shadow-hard-sm active:translate-x-[1px] active:translate-y-[1px] active:shadow-none hover:brightness-105 transition-all cursor-pointer"
                 style={{ fontFamily: "var(--font-numeric)" }}
               >

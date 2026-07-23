@@ -5,7 +5,7 @@ import { WalletCard } from "@/components/maal/WalletCard";
 import { TxRow } from "@/components/maal/TxRow";
 import { formatETB } from "@/lib/format";
 import { TrendChart } from "@/components/maal/TrendChart";
-import { Inbox } from "lucide-react";
+import { Inbox, WalletCards } from "lucide-react";
 
 export default function Home() {
   const { balances, netBalance, transactions, wallets } = useTx();
@@ -58,6 +58,26 @@ export default function Home() {
               <WalletCard key={w.id} account={w.id} balance={balances[w.id] || 0} />
             ))}
           </div>
+        </section>
+      )}
+      {activeWallets.length === 0 && (
+        <section
+          className="rounded-[20px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 text-center shadow-hard-md"
+        >
+          <WalletCards
+            size={30}
+            className="mx-auto text-[var(--accent-primary)]"
+          />
+          <h2 className="mt-3 text-base font-bold">Add your first wallet</h2>
+          <p className="mx-auto mt-1 max-w-xs text-xs text-[var(--text-secondary)]">
+            Create a bank, cash, or mobile wallet before recording transactions.
+          </p>
+          <Link
+            to="/wallets"
+            className="btn-primary mt-4 inline-flex px-4 py-2 text-xs font-bold"
+          >
+            Add Wallet
+          </Link>
         </section>
       )}
 

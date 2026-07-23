@@ -31,6 +31,7 @@ export default function AddTx() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (activeWallets.length === 0) return;
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
     if (type === "transfer" && account === toAccount) return;
@@ -81,6 +82,21 @@ export default function AddTx() {
           className="flex min-h-0 flex-1 flex-col"
         >
         <div className="min-h-0 flex-1 touch-pan-y space-y-5 overflow-y-auto overscroll-contain p-4">
+          {activeWallets.length === 0 && (
+            <div className="rounded-[12px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface-sunken)] p-4 text-center">
+              <p className="text-sm font-bold">Add a wallet first</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Transactions need a wallet to hold their balance.
+              </p>
+              <button
+                type="button"
+                onClick={() => nav({ to: "/wallets" })}
+                className="btn-primary mt-3 cursor-pointer px-4 py-2 text-xs font-bold"
+              >
+                Go to Wallets
+              </button>
+            </div>
+          )}
           {/* Type selector */}
           <div className="grid grid-cols-3 gap-2">
           {TYPES.map((t) => {
@@ -231,7 +247,7 @@ export default function AddTx() {
           </button>
           <button
             type="submit"
-            disabled={submitting || !amount}
+            disabled={submitting || !amount || activeWallets.length === 0}
             className="btn-primary flex-1 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {submitting ? "Saving…" : "Save"}

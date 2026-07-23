@@ -8,7 +8,7 @@ import { RefreshCw, X, CheckCircle2, AlertCircle, Calendar, WifiOff } from "luci
 export function SyncBadge() {
   const { settings } = useSettings();
   const { syncState, pending, lastSyncedAt, syncNow, online } = useTx();
-  const { user, googleSignIn } = useAccount();
+  const { user, googleSignIn, authorizeDrive } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -17,6 +17,8 @@ export function SyncBadge() {
 
   const dotColor = isGuest
     ? "var(--expense-negative)"
+    : syncState === "reconnect" || syncState === "error"
+      ? "var(--expense-negative)"
     : syncState === "synced"
       ? "var(--sync-synced)"
       : syncState === "pending"
@@ -25,6 +27,12 @@ export function SyncBadge() {
 
   const label = isGuest
     ? "Not Synced (Guest)"
+    : syncState === "syncing"
+      ? "Syncing…"
+      : syncState === "reconnect"
+        ? "Reconnect Drive"
+        : syncState === "error"
+          ? "Sync error"
     : syncState === "synced"
       ? lastSyncedAt
         ? `Synced · ${timeAgo(lastSyncedAt)}`
@@ -51,12 +59,23 @@ export function SyncBadge() {
         return;
       }
 
-      await syncNow();
+      let result = await syncNow();
+      if (result.status === "authorization_required") {
+        const authorization = await authorizeDrive();
+        if (!authorization.success) {
+          throw new Error(authorization.error || "Google Drive authorization failed.");
+        }
+        result = await syncNow();
+      }
+      if (result.status === "error") throw new Error(result.error);
+      if (result.status === "first_sync_decision_required") {
+        setIsOpen(false);
+        return;
+      }
       setSyncFeedback({
         type: "success",
         message: "Financial records successfully backed up and synchronized with your secure Google Drive!",
       });
-      window.location.reload();
     } catch (err) {
       setSyncFeedback({
         type: "error",
@@ -229,7 +248,13 @@ export function SyncBadge() {
                 className="btn-primary w-full text-xs py-2 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw size={12} className={syncing ? "animate-spin" : ""} />
-                {syncing ? "Connecting..." : isGuest ? "Connect Google Account" : "Sync Now"}
+                {syncing
+                  ? "Connecting..."
+                  : isGuest
+                    ? "Connect Google Account"
+                    : syncState === "reconnect"
+                      ? "Reconnect Drive"
+                      : "Sync Now"}
               </button>
             </div>
           </div>

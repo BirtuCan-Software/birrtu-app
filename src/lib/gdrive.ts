@@ -1,127 +1,244 @@
 /**
- * Google Drive Sync Utility for Maal (BirrTu)
- * Keeps financial logs backed up securely in user's hidden appDataFolder.
+ * Google Drive AppData transport. V2 uses one journal per device so devices
+ * never overwrite each other's files.
  */
 
-interface SyncData {
-  activeAccountId: string;
-  wallets: any[];
-  transactions: any[];
-  settings?: any;
-  lastSyncedAt: string;
+import type { CloudJournalV2, LegacySyncData } from "./sync-engine";
+import type { WorkspaceCatalog } from "./workspace-sync";
+
+interface DriveFile {
+  id: string;
+  name: string;
 }
 
-export async function getSyncFile(token: string, activeAccountId: string): Promise<{ fileId: string | null; data: SyncData | null }> {
-  try {
-    const q = encodeURIComponent(`name='maal_sync_${activeAccountId}.json' and 'appDataFolder' in parents`);
-    const listUrl = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`;
-    
-    const response = await fetch(listUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+export interface SyncBundle {
+  legacy: LegacySyncData | null;
+  journals: CloudJournalV2[];
+  ownFileId: string | null;
+  workspaceCatalogs: WorkspaceCatalog[];
+  ownCatalogFileId: string | null;
+}
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("UNAUTHORIZED");
-      }
-      const errText = await response.text();
-      throw new Error(`Failed to list sync files: ${errText}`);
-    }
+function legacyName(userId: string) {
+  return `maal_sync_${userId}.json`;
+}
 
-    const result = await response.json();
-    const files = result.files || [];
+function journalPrefix(userId: string) {
+  return `maal_journal_v2_${userId}_`;
+}
 
-    if (files.length === 0) {
-      return { fileId: null, data: null };
-    }
+function journalName(userId: string, workspaceId: string, deviceId: string) {
+  return `${journalPrefix(userId)}${workspaceId}_${deviceId}.json`;
+}
 
-    const fileId = files[0].id;
-    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+function catalogPrefix(userId: string) {
+  return `maal_workspace_catalog_v1_${userId}_`;
+}
 
-    const downloadResponse = await fetch(downloadUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+function catalogName(userId: string, deviceId: string) {
+  return `${catalogPrefix(userId)}${deviceId}.json`;
+}
 
-    if (!downloadResponse.ok) {
-      const errText = await downloadResponse.text();
-      throw new Error(`Failed to download sync file contents: ${errText}`);
-    }
-
-    const data = await downloadResponse.json();
-    return { fileId, data };
-  } catch (error) {
-    console.error("[GDrive] Error fetching sync file:", error);
-    throw error;
+async function driveFetch(token: string, url: string, init?: RequestInit) {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...init?.headers,
+    },
+  });
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  if (!response.ok) {
+    throw new Error(`Google Drive request failed: ${await response.text()}`);
   }
+  return response;
 }
 
-export async function saveSyncFile(
+async function listSyncFiles(token: string, userId: string) {
+  const legacy = legacyName(userId).replace(/'/g, "\\'");
+  const prefix = journalPrefix(userId).replace(/'/g, "\\'");
+  const catalogs = catalogPrefix(userId).replace(/'/g, "\\'");
+  const query = encodeURIComponent(
+    `trashed = false and 'appDataFolder' in parents and (name = '${legacy}' or name contains '${prefix}' or name contains '${catalogs}')`,
+  );
+  let pageToken = "";
+  const files: DriveFile[] = [];
+
+  do {
+    const url = new URL("https://www.googleapis.com/drive/v3/files");
+    url.searchParams.set("spaces", "appDataFolder");
+    url.searchParams.set("q", decodeURIComponent(query));
+    url.searchParams.set("fields", "nextPageToken,files(id,name)");
+    url.searchParams.set("pageSize", "1000");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const response = await driveFetch(token, url.toString());
+    const page = await response.json();
+    files.push(...(page.files || []));
+    pageToken = page.nextPageToken || "";
+  } while (pageToken);
+
+  return files;
+}
+
+async function downloadJson(token: string, fileId: string) {
+  const response = await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+  );
+  return response.json();
+}
+
+export async function getSyncBundle(
   token: string,
-  activeAccountId: string,
+  userId: string,
+  workspaceId: string,
+  deviceId: string,
+): Promise<SyncBundle> {
+  const files = await listSyncFiles(token, userId);
+  const ownName = journalName(userId, workspaceId, deviceId);
+  const ownCatalogName = catalogName(userId, deviceId);
+  const legacyFile = files.find((file) => file.name === legacyName(userId));
+  const journalFiles = files.filter((file) =>
+    file.name.startsWith(journalPrefix(userId)),
+  );
+  const catalogFiles = files.filter((file) =>
+    file.name.startsWith(catalogPrefix(userId)),
+  );
+
+  const [legacy, journalValues, catalogValues] = await Promise.all([
+    workspaceId === "primary" && legacyFile
+      ? downloadJson(token, legacyFile.id)
+      : null,
+    Promise.all(
+      journalFiles.map(async (file) => ({
+        file,
+        data: await downloadJson(token, file.id),
+      })),
+    ),
+    Promise.all(
+      catalogFiles.map(async (file) => ({
+        file,
+        data: await downloadJson(token, file.id),
+      })),
+    ),
+  ]);
+
+  return {
+    legacy,
+    journals: journalValues
+      .map(({ data }) => data)
+      .filter(
+        (data): data is CloudJournalV2 =>
+          data?.schemaVersion === 2 &&
+          data.userId === userId &&
+          (data.workspaceId || "primary") === workspaceId,
+      ),
+    ownFileId:
+      journalValues.find(({ file }) => file.name === ownName)?.file.id || null,
+    workspaceCatalogs: catalogValues
+      .map(({ data }) => data)
+      .filter(
+        (data): data is WorkspaceCatalog =>
+          data?.schemaVersion === 1 && data.userId === userId,
+      ),
+    ownCatalogFileId:
+      catalogValues.find(({ file }) => file.name === ownCatalogName)?.file.id ||
+      null,
+  };
+}
+
+export async function saveDeviceJournal(
+  token: string,
+  userId: string,
+  workspaceId: string,
+  deviceId: string,
   fileId: string | null,
-  data: SyncData
-): Promise<string> {
-  const fileName = `maal_sync_${activeAccountId}.json`;
-
+  journal: CloudJournalV2,
+) {
   if (fileId) {
-    // Update existing file using simple media PATCH
-    const updateUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
-    const response = await fetch(updateUrl, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    await driveFetch(
+      token,
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(journal),
       },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Failed to update sync file: ${errText}`);
-    }
-
-    await response.json();
+    );
     return fileId;
-  } else {
-    // Create new file using multipart upload POST
-    const metadata = {
-      name: fileName,
-      parents: ["appDataFolder"],
-    };
-    const boundary = "gdrive_sync_boundary";
-    const delimiter = `\r\n--${boundary}\r\n`;
-    const closeDelimiter = `\r\n--${boundary}--`;
-
-    const body = [
-      delimiter,
-      "Content-Type: application/json; charset=UTF-8\r\n\r\n",
-      JSON.stringify(metadata),
-      delimiter,
-      "Content-Type: application/json\r\n\r\n",
-      JSON.stringify(data),
-      closeDelimiter,
-    ].join("");
-
-    const createUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
-    const response = await fetch(createUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Failed to create sync file: ${errText}`);
-    }
-
-    const result = await response.json();
-    return result.id;
   }
+
+  const boundary = `birrtu_${crypto.randomUUID()}`;
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const body = [
+    delimiter,
+    "Content-Type: application/json; charset=UTF-8\r\n\r\n",
+    JSON.stringify({
+      name: journalName(userId, workspaceId, deviceId),
+      parents: ["appDataFolder"],
+    }),
+    delimiter,
+    "Content-Type: application/json\r\n\r\n",
+    JSON.stringify(journal),
+    `\r\n--${boundary}--`,
+  ].join("");
+
+  const response = await driveFetch(
+    token,
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+    {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    },
+  );
+  const result = await response.json();
+  return result.id as string;
+}
+
+export async function saveWorkspaceCatalog(
+  token: string,
+  userId: string,
+  deviceId: string,
+  fileId: string | null,
+  catalog: WorkspaceCatalog,
+) {
+  if (fileId) {
+    await driveFetch(
+      token,
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(catalog),
+      },
+    );
+    return fileId;
+  }
+
+  const boundary = `birrtu_${crypto.randomUUID()}`;
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const body = [
+    delimiter,
+    "Content-Type: application/json; charset=UTF-8\r\n\r\n",
+    JSON.stringify({
+      name: catalogName(userId, deviceId),
+      parents: ["appDataFolder"],
+    }),
+    delimiter,
+    "Content-Type: application/json\r\n\r\n",
+    JSON.stringify(catalog),
+    `\r\n--${boundary}--`,
+  ].join("");
+  const response = await driveFetch(
+    token,
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+    {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    },
+  );
+  const result = await response.json();
+  return result.id as string;
 }

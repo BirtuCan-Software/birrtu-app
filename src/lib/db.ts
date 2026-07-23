@@ -11,6 +11,9 @@ export interface Wallet {
   accountHolder?: string;
   logoUrl?: string; // base64 logo (optional)
   deleted?: boolean;
+  sync_status?: SyncStatus;
+  last_updated?: string;
+  origin_device_id?: string;
 }
 
 export type TxType = "income" | "expense" | "transfer";
@@ -26,6 +29,8 @@ export interface Transaction {
   timestamp: string;
   sync_status: SyncStatus;
   last_updated: string;
+  deleted?: boolean;
+  origin_device_id?: string;
 }
 
 interface MaalDB extends DBSchema {
@@ -57,13 +62,14 @@ export async function listTransactions(accountId: string): Promise<Transaction[]
   const db = await getDB(accountId);
   const all = await db.getAllFromIndex("transactions", "by-timestamp");
   return all
-    .filter((t) => t.sync_status !== "pending_delete")
+    .filter((t) => !t.deleted && t.sync_status !== "pending_delete")
     .reverse();
 }
 
 export async function addTransaction(
   accountId: string,
   tx: Omit<Transaction, "id" | "sync_status" | "last_updated">,
+  deviceId?: string,
 ) {
   const db = await getDB(accountId);
   const now = new Date().toISOString();
@@ -72,12 +78,17 @@ export async function addTransaction(
     id: crypto.randomUUID(),
     sync_status: "pending_insert",
     last_updated: now,
+    origin_device_id: deviceId,
   };
   await db.add("transactions", record);
   return record;
 }
 
-export async function deleteTransaction(accountId: string, id: string) {
+export async function deleteTransaction(
+  accountId: string,
+  id: string,
+  deviceId?: string,
+) {
   const db = await getDB(accountId);
   const existing = await db.get("transactions", id);
   if (!existing) return;
@@ -86,8 +97,10 @@ export async function deleteTransaction(accountId: string, id: string) {
   } else {
     await db.put("transactions", {
       ...existing,
+      deleted: true,
       sync_status: "pending_delete",
       last_updated: new Date().toISOString(),
+      origin_device_id: deviceId || existing.origin_device_id,
     });
   }
 }
@@ -106,9 +119,7 @@ export async function markAllSynced(accountId: string) {
   const db = await getDB(accountId);
   const tx = db.transaction("transactions", "readwrite");
   for await (const cursor of tx.store) {
-    if (cursor.value.sync_status === "pending_delete") {
-      await cursor.delete();
-    } else if (cursor.value.sync_status === "pending_insert") {
+    if (cursor.value.sync_status !== "synced") {
       await cursor.update({ ...cursor.value, sync_status: "synced" });
     }
   }
@@ -125,8 +136,31 @@ export async function clearAndImportTransactions(accountId: string, txs: Transac
   await tx.done;
 }
 
+export async function mergeImportTransactions(
+  accountId: string,
+  transactions: Transaction[],
+) {
+  const db = await getDB(accountId);
+  const tx = db.transaction("transactions", "readwrite");
+  for (const incoming of transactions) {
+    const existing = await tx.store.get(incoming.id);
+    const existingTime = Date.parse(existing?.last_updated || "1970-01-01") || 0;
+    const incomingTime = Date.parse(incoming.last_updated || "1970-01-01") || 0;
+    const existingDevice = existing?.origin_device_id || "";
+    const incomingDevice = incoming.origin_device_id || "";
+    if (
+      existing &&
+      (existingTime > incomingTime ||
+        (existingTime === incomingTime && existingDevice > incomingDevice))
+    ) {
+      continue;
+    }
+    await tx.store.put(incoming);
+  }
+  await tx.done;
+}
+
 export async function listAllRawTransactions(accountId: string): Promise<Transaction[]> {
   const db = await getDB(accountId);
   return await db.getAll("transactions");
 }
-
