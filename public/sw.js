@@ -1,4 +1,4 @@
-const CACHE_NAME = "birrtu-pwa-cache-v1";
+const CACHE_NAME = "birrtu-pwa-cache-v2";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -32,6 +32,16 @@ self.addEventListener("activate", (event) => {
       );
     }).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "CLEAR_CACHES") {
+    event.waitUntil(
+      caches.keys().then((cacheNames) =>
+        Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)))
+      )
+    );
+  }
 });
 
 // Fetch interception

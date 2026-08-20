@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Section } from "./SettingsHelpers";
-import { Laptop, Smartphone, Check, Sparkles } from "lucide-react";
+import { Laptop, Smartphone, Check, Sparkles, RefreshCw } from "lucide-react";
 
 export function AppStatusSection() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showManualInstallGuide, setShowManualInstallGuide] = useState(false);
   const [installMessage, setInstallMessage] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const checkStandalone = () => {
@@ -49,6 +50,21 @@ export function AppStatusSection() {
     } else {
       setShowManualInstallGuide(true);
       setInstallMessage("Native install prompt is not available in this browser right now. Use the steps below.");
+    }
+  };
+
+  const handleRefreshApp = async () => {
+    setRefreshing(true);
+    try {
+      if ("caches" in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+      }
+      const registration = await navigator.serviceWorker?.getRegistration();
+      registration?.active?.postMessage({ type: "CLEAR_CACHES" });
+      await registration?.update();
+    } finally {
+      window.location.reload();
     }
   };
 
@@ -159,16 +175,33 @@ export function AppStatusSection() {
           )}
 
           {isStandalone && (
-            <div
-              className="p-3 rounded-lg text-xs leading-relaxed flex items-center gap-2"
-              style={{
-                background: "rgba(47, 226, 138, 0.05)",
-                border: "1px solid rgba(47, 226, 138, 0.15)",
-                color: "var(--income-positive)",
-              }}
-            >
-              <Check size={14} className="shrink-0" />
-              <span className="font-medium">You are running the official standalone PWA application! Enjoy offline security and direct sandbox speed.</span>
+            <div className="space-y-3">
+              <div
+                className="p-3 rounded-lg text-xs leading-relaxed flex items-center gap-2"
+                style={{
+                  background: "rgba(47, 226, 138, 0.05)",
+                  border: "1px solid rgba(47, 226, 138, 0.15)",
+                  color: "var(--income-positive)",
+                }}
+              >
+                <Check size={14} className="shrink-0" />
+                <span className="font-medium">You are running the official standalone PWA application! Enjoy offline security and direct sandbox speed.</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRefreshApp}
+                disabled={refreshing}
+                className="w-full text-xs py-3 flex items-center justify-center gap-2 cursor-pointer rounded-xl font-bold transition-all disabled:cursor-wait disabled:opacity-70"
+                style={{
+                  background: "var(--bg-surface-sunken)",
+                  border: "2px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+                {refreshing ? "Refreshing..." : "Refresh app updates"}
+              </button>
             </div>
           )}
         </div>

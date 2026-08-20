@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router";
 import { Plus, Trash2, X } from "lucide-react";
 import { Modal } from "@/components/maal/Modal";
@@ -37,7 +37,7 @@ export default function AddTx({
   onClose?: () => void;
 }) {
   const nav = useNavigate();
-  const { addTx, updateTx, wallets } = useTx();
+  const { addTx, updateTx, transactions, wallets } = useTx();
   const isEditing = !!transaction;
   const walletChoices = wallets.filter(
     (w) => !w.deleted || w.id === transaction?.account || w.id === transaction?.toAccount,
@@ -51,6 +51,8 @@ export default function AddTx({
     () => transaction?.toAccount || walletChoices[1]?.id || walletChoices[0]?.id || "cash",
   );
   const [description, setDescription] = useState(transaction?.description || "");
+  const [descriptionSuggestionsOpen, setDescriptionSuggestionsOpen] = useState(false);
+  const descriptionFieldRef = useRef<HTMLDivElement>(null);
   const [timestamp, setTimestamp] = useState(() =>
     toDateTimeLocal(transaction?.timestamp || new Date().toISOString()),
   );
@@ -66,6 +68,34 @@ export default function AddTx({
       : [emptyItem()],
   );
   const [submitting, setSubmitting] = useState(false);
+
+  const descriptionSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const query = description.trim().toLowerCase();
+    return transactions
+      .map((tx) => tx.description.trim())
+      .filter((value) => {
+        const key = value.toLowerCase();
+        if (!value || seen.has(key)) return false;
+        seen.add(key);
+        return !query || key.includes(query);
+      })
+      .slice(0, 20);
+  }, [description, transactions]);
+
+  const showDescriptionSuggestions =
+    descriptionSuggestionsOpen && descriptionSuggestions.length > 0;
+
+  useEffect(() => {
+    if (!descriptionSuggestionsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!descriptionFieldRef.current?.contains(event.target as Node)) {
+        setDescriptionSuggestionsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [descriptionSuggestionsOpen]);
 
   const typeColor =
     type === "income"
@@ -427,7 +457,7 @@ export default function AddTx({
         )}
 
         {/* Description */}
-        <div>
+        <div ref={descriptionFieldRef} className="relative">
           <label
             className="mb-1 block text-xs font-medium uppercase tracking-wider"
             style={{ color: "var(--text-secondary)" }}
@@ -435,9 +465,16 @@ export default function AddTx({
             Description
           </label>
           <textarea
+            aria-autocomplete="list"
+            aria-controls="description-suggestions"
+            aria-expanded={showDescriptionSuggestions}
             placeholder="e.g. Lunch, Customer payment"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setDescriptionSuggestionsOpen(true);
+            }}
+            onFocus={() => setDescriptionSuggestionsOpen(true)}
             rows={3}
             className="w-full rounded-[10px] px-4 py-3 outline-none resize-none"
             style={{
@@ -447,6 +484,47 @@ export default function AddTx({
               fontFamily: "var(--font-body)",
             }}
           />
+          {showDescriptionSuggestions && (
+            <div
+              id="description-suggestions"
+              role="listbox"
+              className="shadow-hard-md absolute left-0 right-0 top-full z-20 mt-2 max-h-48 overflow-y-auto rounded-[10px] p-1"
+              style={{
+                background: "var(--bg-surface-raised)",
+                border: "2px solid var(--border-strong)",
+              }}
+            >
+              <div
+                className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {description.trim() ? "Matches" : "Recent"}
+              </div>
+              {descriptionSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  role="option"
+                  onClick={() => {
+                    setDescription(suggestion);
+                    setDescriptionSuggestionsOpen(false);
+                  }}
+                  className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-medium transition-colors cursor-pointer"
+                  style={{
+                    color: "var(--text-primary)",
+                  }}
+                  onMouseEnter={(event) => {
+                    event.currentTarget.style.background = "var(--bg-surface-sunken)";
+                  }}
+                  onMouseLeave={(event) => {
+                    event.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
