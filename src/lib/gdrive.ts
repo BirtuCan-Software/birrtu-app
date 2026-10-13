@@ -5,6 +5,7 @@
 
 import type { CloudJournalV2, LegacySyncData } from "./sync-engine";
 import type { WorkspaceCatalog } from "./workspace-sync";
+import { generateUUID } from "./uuid.ts";
 
 interface DriveFile {
   id: string;
@@ -88,6 +89,51 @@ async function downloadJson(token: string, fileId: string) {
   return response.json();
 }
 
+async function maybeDownloadJson(token: string, file: DriveFile) {
+  try {
+    return await downloadJson(token, file.id);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      throw error;
+    }
+    console.warn("Skipping unreadable Google Drive sync file:", file.name, error);
+    return null;
+  }
+}
+
+function isCloudJournal(
+  data: unknown,
+  userId: string,
+  workspaceId: string,
+): data is CloudJournalV2 {
+  if (!data || typeof data !== "object") return false;
+  const journal = data as Partial<CloudJournalV2>;
+  return (
+    journal.schemaVersion === 2 &&
+    journal.userId === userId &&
+    (journal.workspaceId || "primary") === workspaceId &&
+    typeof journal.deviceId === "string" &&
+    typeof journal.updatedAt === "string" &&
+    Array.isArray(journal.wallets) &&
+    Array.isArray(journal.transactions)
+  );
+}
+
+function isWorkspaceCatalog(
+  data: unknown,
+  userId: string,
+): data is WorkspaceCatalog {
+  if (!data || typeof data !== "object") return false;
+  const catalog = data as Partial<WorkspaceCatalog>;
+  return (
+    catalog.schemaVersion === 1 &&
+    catalog.userId === userId &&
+    typeof catalog.deviceId === "string" &&
+    typeof catalog.updatedAt === "string" &&
+    Array.isArray(catalog.workspaces)
+  );
+}
+
 export async function getSyncBundle(
   token: string,
   userId: string,
@@ -107,18 +153,18 @@ export async function getSyncBundle(
 
   const [legacy, journalValues, catalogValues] = await Promise.all([
     workspaceId === "primary" && legacyFile
-      ? downloadJson(token, legacyFile.id)
+      ? maybeDownloadJson(token, legacyFile)
       : null,
     Promise.all(
       journalFiles.map(async (file) => ({
         file,
-        data: await downloadJson(token, file.id),
+        data: await maybeDownloadJson(token, file),
       })),
     ),
     Promise.all(
       catalogFiles.map(async (file) => ({
         file,
-        data: await downloadJson(token, file.id),
+        data: await maybeDownloadJson(token, file),
       })),
     ),
   ]);
@@ -129,9 +175,7 @@ export async function getSyncBundle(
       .map(({ data }) => data)
       .filter(
         (data): data is CloudJournalV2 =>
-          data?.schemaVersion === 2 &&
-          data.userId === userId &&
-          (data.workspaceId || "primary") === workspaceId,
+          isCloudJournal(data, userId, workspaceId),
       ),
     ownFileId:
       journalValues.find(({ file }) => file.name === ownName)?.file.id || null,
@@ -139,7 +183,7 @@ export async function getSyncBundle(
       .map(({ data }) => data)
       .filter(
         (data): data is WorkspaceCatalog =>
-          data?.schemaVersion === 1 && data.userId === userId,
+          isWorkspaceCatalog(data, userId),
       ),
     ownCatalogFileId:
       catalogValues.find(({ file }) => file.name === ownCatalogName)?.file.id ||
@@ -168,7 +212,7 @@ export async function saveDeviceJournal(
     return fileId;
   }
 
-  const boundary = `birrtu_${crypto.randomUUID()}`;
+  const boundary = `birrtu_${generateUUID()}`;
   const delimiter = `\r\n--${boundary}\r\n`;
   const body = [
     delimiter,
@@ -216,7 +260,7 @@ export async function saveWorkspaceCatalog(
     return fileId;
   }
 
-  const boundary = `birrtu_${crypto.randomUUID()}`;
+  const boundary = `birrtu_${generateUUID()}`;
   const delimiter = `\r\n--${boundary}\r\n`;
   const body = [
     delimiter,

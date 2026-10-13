@@ -1,3 +1,4 @@
+import './lib/uuid.ts';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
@@ -31,6 +32,6 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (sessionStorage.getItem("birrtu-sw-refreshing")) return;
     sessionStorage.setItem("birrtu-sw-refreshing", "1");
-    window.location.reload();
+    if (document.visibilityState === "hidden") window.location.reload();
   });
 }

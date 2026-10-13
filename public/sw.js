@@ -1,4 +1,4 @@
-const CACHE_NAME = "birrtu-pwa-cache-v2";
+const CACHE_NAME = "birrtu-pwa-cache-v3";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -53,6 +53,8 @@ self.addEventListener("fetch", (event) => {
 
   // Skip chrome-extension, internal development resources, hot-reloads, etc.
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
+  if (url.origin !== self.location.origin) return;
+  if (event.request.headers.has("authorization")) return;
 
   // Navigation requests (HTML pages) -> Network-First
   if (event.request.mode === "navigate") {

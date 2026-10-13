@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { Suspense, lazy, useState, useEffect } from "react";
 import { useSettings } from "@/lib/settings";
 import { useAccount } from "@/lib/accounts";
 import { hasLocalDeviceLock } from "@/lib/device-lock";
-import { PinLockScreen } from "./PinLockScreen";
+
+const PinLockScreen = lazy(() =>
+  import("./PinLockScreen").then((module) => ({ default: module.PinLockScreen })),
+);
 
 interface DeviceLockGuardProps {
   children: React.ReactNode;
@@ -44,9 +47,11 @@ export function DeviceLockGuard({ children }: DeviceLockGuardProps) {
 
   if (shouldLock && !isUnlocked) {
     return (
-      <PinLockScreen
-        onSuccess={() => setIsUnlocked(true)}
-      />
+      <Suspense fallback={<div className="h-dvh bg-[var(--bg-base)]" />}>
+        <PinLockScreen
+          onSuccess={() => setIsUnlocked(true)}
+        />
+      </Suspense>
     );
   }
 

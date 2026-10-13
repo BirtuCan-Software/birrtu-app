@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { generateUUID } from "./uuid.ts";
 
 export type Account = string;
 export type WalletType = "bank" | "cash" | "mobile" | "other";
@@ -83,7 +84,7 @@ export async function addTransaction(
   const now = new Date().toISOString();
   const record: Transaction = {
     ...tx,
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     sync_status: "pending_insert",
     last_updated: now,
     origin_device_id: deviceId,

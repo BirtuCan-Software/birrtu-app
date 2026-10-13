@@ -1,21 +1,36 @@
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useRef } from "react";
 import { RouterProvider, useNavigate, useRouterState } from "@/lib/router";
 import { AccountProvider, useAccount } from "@/lib/accounts";
 import { SettingsProvider } from "@/lib/settings";
 import { TxProvider } from "@/lib/tx-store";
 import { AppHeader } from "@/components/maal/AppHeader";
 import { BottomNav } from "@/components/maal/BottomNav";
-import { AccountSelectionScreen } from "@/components/maal/AccountSelectionScreen";
 import { DeviceLockGuard } from "@/components/maal/DeviceLockGuard";
 import { FirstSyncDialog } from "@/components/maal/FirstSyncDialog";
-import { PolicyView } from "@/components/maal/auth/PolicyView";
 
-// Import page components
-import Home from "@/routes/index";
-import AddTx from "@/routes/add";
-import TxList from "@/routes/transactions";
-import SettingsPage from "@/routes/settings";
-import WalletsPage from "@/routes/wallets";
+const AccountSelectionScreen = lazy(() =>
+  import("@/components/maal/AccountSelectionScreen").then((module) => ({
+    default: module.AccountSelectionScreen,
+  })),
+);
+const PolicyView = lazy(() =>
+  import("@/components/maal/auth/PolicyView").then((module) => ({
+    default: module.PolicyView,
+  })),
+);
+const Home = lazy(() => import("@/routes/index"));
+const AddTx = lazy(() => import("@/routes/add"));
+const TxList = lazy(() => import("@/routes/transactions"));
+const SettingsPage = lazy(() => import("@/routes/settings"));
+const WalletsPage = lazy(() => import("@/routes/wallets"));
+
+function AppFallback() {
+  return (
+    <div className="flex min-h-40 items-center justify-center text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)]">
+      Loading...
+    </div>
+  );
+}
 
 function getScrollableParent(el: EventTarget | null): HTMLElement | null {
   let node = el instanceof HTMLElement ? el : null;
@@ -97,7 +112,7 @@ function AppContent() {
     <div className="mx-auto flex h-dvh w-full max-w-[720px] flex-col overflow-hidden">
       {!hideChrome && <AppHeader />}
       <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
-        {renderPage()}
+        <Suspense fallback={<AppFallback />}>{renderPage()}</Suspense>
       </main>
       {!hideChrome && <BottomNav />}
       <FirstSyncDialog />
@@ -114,10 +129,12 @@ function PolicyRoute() {
     <div className="mx-auto flex h-dvh w-full max-w-[720px] flex-col overflow-hidden">
       <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
         <div className="flex min-h-full items-start justify-center">
-          <PolicyView
-            view={view}
-            onBack={() => navigate({ to: "/" })}
-          />
+          <Suspense fallback={<AppFallback />}>
+            <PolicyView
+              view={view}
+              onBack={() => navigate({ to: "/" })}
+            />
+          </Suspense>
         </div>
       </main>
     </div>
@@ -134,7 +151,11 @@ function AppWithAccount() {
   }
 
   if (!activeAccountId) {
-    return <AccountSelectionScreen />;
+    return (
+      <Suspense fallback={<AppFallback />}>
+        <AccountSelectionScreen />
+      </Suspense>
+    );
   }
 
   return (

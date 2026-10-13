@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { Suspense, lazy, useRef, useState } from "react";
 import type { Transaction } from "@/lib/db";
 import { accountLabel, formatETB, timeAgo, formatDateTime } from "@/lib/format";
 import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Pencil, Trash2 } from "lucide-react";
 import { useTx } from "@/lib/tx-store";
 import { useSettings } from "@/lib/settings";
 import { Modal } from "@/components/maal/Modal";
-import { motion, useAnimation, useMotionValue, useTransform } from "motion/react";
-import AddTx from "@/routes/add";
+
+const AddTx = lazy(() => import("@/routes/add"));
 
 export interface TxRowProps {
   tx: Transaction;
@@ -20,8 +20,9 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
   const [willDelete, setWillDelete] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const controls = useAnimation();
-  const x = useMotionValue(0);
+  const [x, setX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ pointerId: number; x: number } | null>(null);
 
   const isIncome = tx.type === "income";
   const isExpense = tx.type === "expense";
@@ -35,30 +36,38 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
   const Icon = isTransfer ? ArrowLeftRight : isIncome ? ArrowDownLeft : ArrowUpRight;
   const sign = isIncome ? "+" : isExpense ? "−" : "⇄";
 
-  // Framer Motion spring values mapped to drag distance
-  const trashOpacity = useTransform(x, [0, -80], [0, 1]);
-  const trashScale = useTransform(x, [0, -80], [0.8, 1.1]);
-  const backgroundOpacity = useTransform(x, [0, -80], [0.3, 1]);
+  const dragProgress = Math.min(Math.abs(x) / 80, 1);
+  const backgroundOpacity = 0.3 + dragProgress * 0.7;
+  const trashScale = 0.8 + dragProgress * 0.3;
 
-  const handleDrag = (_event: any, info: any) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disableSwipe) return;
-    if (info.offset.x < -80) {
-      if (!willDelete) setWillDelete(true);
-    } else {
-      if (willDelete) setWillDelete(false);
-    }
+    dragStartRef.current = { pointerId: event.pointerId, x: event.clientX };
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleDragEnd = async (_event: any, info: any) => {
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disableSwipe) return;
-    if (info.offset.x < -80) {
-      // Show confirmation before deleting
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+    const nextX = Math.max(-120, Math.min(0, event.clientX - dragStart.x));
+    setX(nextX);
+    setWillDelete(nextX < -80);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (disableSwipe) return;
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+    dragStartRef.current = null;
+    setIsDragging(false);
+    if (x < -80) {
       setShowConfirm(true);
     } else {
-      // Snap back to normal
-      controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 30 } });
-      setWillDelete(false);
+      setX(0);
     }
+    setWillDelete(false);
   };
 
   const triggerDelete = () => {
@@ -69,7 +78,7 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
     <div className="relative overflow-hidden w-full select-none" style={{ touchAction: "pan-y" }}>
       {/* Background deletion action area */}
       {!disableSwipe && (
-        <motion.div
+        <div
           className="absolute inset-0 flex items-center justify-end px-4"
           style={{
             background: "rgb(239, 68, 68)", // Red background
@@ -77,29 +86,33 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
             zIndex: 0,
           }}
         >
-          <motion.div
+          <div
             className="flex items-center gap-1.5 text-white font-semibold text-xs pr-2"
             style={{
-              opacity: trashOpacity,
-              scale: trashScale,
+              opacity: dragProgress,
+              transform: `scale(${trashScale})`,
             }}
           >
             <Trash2 size={16} className={willDelete ? "animate-bounce" : ""} />
             <span>{willDelete ? "Release to Delete" : "Swipe to Delete"}</span>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
 
       {/* Foreground list item content */}
-      <motion.div
-        drag={disableSwipe ? false : "x"}
-        dragDirectionLock={!disableSwipe}
-        dragConstraints={disableSwipe ? undefined : { left: -120, right: 0 }}
-        dragElastic={disableSwipe ? undefined : { left: 0.4, right: 0.1 }}
-        onDrag={disableSwipe ? undefined : handleDrag}
-        onDragEnd={disableSwipe ? undefined : handleDragEnd}
-        animate={controls}
-        style={{ x, zIndex: 1, position: "relative", background: "var(--bg-surface)", borderBottom: "1px solid var(--border-subtle)" }}
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        style={{
+          transform: `translateX(${x}px)`,
+          zIndex: 1,
+          position: "relative",
+          background: "var(--bg-surface)",
+          borderBottom: "1px solid var(--border-subtle)",
+          transition: isDragging ? "none" : "transform 150ms ease",
+        }}
         className={`flex items-center gap-3 py-3 w-full ${disableSwipe ? "" : "cursor-grab active:cursor-grabbing"}`}
       >
         <div
@@ -155,9 +168,13 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
         >
           <Trash2 size={16} />
         </button>
-      </motion.div>
+      </div>
 
-      {showEdit && <AddTx transaction={tx} onClose={() => setShowEdit(false)} />}
+      {showEdit && (
+        <Suspense fallback={null}>
+          <AddTx transaction={tx} onClose={() => setShowEdit(false)} />
+        </Suspense>
+      )}
 
       {/* Confirmation Dialog Overlay */}
       {showConfirm && (
@@ -212,7 +229,7 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
               <button
                 onClick={() => {
                   setShowConfirm(false);
-                  controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 30 } });
+                  setX(0);
                   setWillDelete(false);
                 }}
                 className="flex-1 py-2.5 text-xs font-bold rounded-[8px] cursor-pointer transition-colors"
@@ -227,7 +244,7 @@ export function TxRow({ tx, disableSwipe = false }: TxRowProps) {
               <button
                 onClick={async () => {
                   setShowConfirm(false);
-                  await controls.start({ x: "-100%", opacity: 0, transition: { duration: 0.2 } });
+                  setX(-120);
                   removeTx(tx.id);
                 }}
                 className="flex-1 py-2.5 text-xs font-bold rounded-[8px] cursor-pointer transition-colors text-white bg-red-500 hover:bg-red-600 shadow-sm"

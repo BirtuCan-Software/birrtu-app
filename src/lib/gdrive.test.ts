@@ -137,6 +137,29 @@ test("reports expired Drive authorization distinctly", async () => {
   }
 });
 
+test("reports expired Drive authorization from journal downloads", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/drive/v3/files?")) {
+      return Response.json({
+        files: [
+          { id: "a", name: "maal_journal_v2_user_primary_device-a.json" },
+        ],
+      });
+    }
+    return new Response("", { status: 401 });
+  };
+  try {
+    await assert.rejects(
+      getSyncBundle("expired", "user", "primary", "device-a"),
+      /UNAUTHORIZED/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("loads only journals belonging to the selected workspace", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
@@ -184,6 +207,113 @@ test("loads only journals belonging to the selected workspace", async () => {
     );
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("skips malformed device journals without blocking valid devices", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/drive/v3/files?")) {
+      return Response.json({
+        files: [
+          { id: "good", name: "maal_journal_v2_user_primary_device-a.json" },
+          { id: "bad-shape", name: "maal_journal_v2_user_primary_device-b.json" },
+          { id: "bad-json", name: "maal_journal_v2_user_primary_device-c.json" },
+        ],
+      });
+    }
+    if (url.includes("/good?")) {
+      return Response.json({
+        schemaVersion: 2,
+        userId: "user",
+        workspaceId: "primary",
+        deviceId: "device-a",
+        updatedAt: "2026-01-01T00:00:00Z",
+        wallets: [],
+        transactions: [],
+      });
+    }
+    if (url.includes("/bad-shape?")) {
+      return Response.json({
+        schemaVersion: 2,
+        userId: "user",
+        workspaceId: "primary",
+        deviceId: "device-b",
+        updatedAt: "2026-01-01T00:00:00Z",
+      });
+    }
+    if (url.includes("/bad-json?")) {
+      return new Response("{", {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    const bundle = await getSyncBundle(
+      "token",
+      "user",
+      "primary",
+      "device-a",
+    );
+    assert.equal(bundle.journals.length, 1);
+    assert.equal(bundle.journals[0].deviceId, "device-a");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+  }
+});
+
+test("skips malformed workspace catalogs without blocking valid catalogs", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/drive/v3/files?")) {
+      return Response.json({
+        files: [
+          { id: "good", name: "maal_workspace_catalog_v1_user_device-a.json" },
+          { id: "bad", name: "maal_workspace_catalog_v1_user_device-b.json" },
+        ],
+      });
+    }
+    if (url.includes("/good?")) {
+      return Response.json({
+        schemaVersion: 1,
+        userId: "user",
+        deviceId: "device-a",
+        updatedAt: "2026-01-01T00:00:00Z",
+        workspaces: [],
+      });
+    }
+    if (url.includes("/bad?")) {
+      return Response.json({
+        schemaVersion: 1,
+        userId: "user",
+        deviceId: "device-b",
+        updatedAt: "2026-01-01T00:00:00Z",
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    const bundle = await getSyncBundle(
+      "token",
+      "user",
+      "primary",
+      "device-a",
+    );
+    assert.equal(bundle.workspaceCatalogs.length, 1);
+    assert.equal(bundle.workspaceCatalogs[0].deviceId, "device-a");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
   }
 });
 

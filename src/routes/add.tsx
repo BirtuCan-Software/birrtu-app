@@ -4,6 +4,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { Modal } from "@/components/maal/Modal";
 import { useTx } from "@/lib/tx-store";
 import type { Account, Transaction, TxType } from "@/lib/db";
+import { generateUUID } from "@/lib/uuid";
 
 const TYPES: { value: TxType; label: string }[] = [
   { value: "expense", label: "Expense" },
@@ -26,7 +27,7 @@ interface ItemDraft {
 }
 
 function emptyItem(): ItemDraft {
-  return { id: crypto.randomUUID(), label: "", price: "", quantity: "" };
+  return { id: generateUUID(), label: "", price: "", quantity: "" };
 }
 
 export default function AddTx({

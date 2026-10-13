@@ -1,16 +1,37 @@
-import React from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Link } from "@/lib/router";
 import { useTx } from "@/lib/tx-store";
 import { WalletCard } from "@/components/maal/WalletCard";
 import { TxRow } from "@/components/maal/TxRow";
 import { formatETB } from "@/lib/format";
-import { TrendChart } from "@/components/maal/TrendChart";
 import { Inbox, WalletCards } from "lucide-react";
+
+const TrendChart = lazy(() =>
+  import("@/components/maal/TrendChart").then((module) => ({
+    default: module.TrendChart,
+  })),
+);
 
 export default function Home() {
   const { balances, netBalance, transactions, wallets } = useTx();
+  const [showTrendChart, setShowTrendChart] = useState(false);
   const activeWallets = wallets.filter((w) => !w.deleted);
   const recent = transactions.slice(0, 6);
+
+  useEffect(() => {
+    if (showTrendChart) return;
+    const load = () => {
+      setShowTrendChart(true);
+    };
+    const timeoutId = window.setTimeout(load, 3000);
+    window.addEventListener("scroll", load, { once: true, passive: true });
+    window.addEventListener("pointerdown", load, { once: true, passive: true });
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("scroll", load);
+      window.removeEventListener("pointerdown", load);
+    };
+  }, [showTrendChart]);
 
   return (
     <div className="space-y-6">
@@ -140,7 +161,13 @@ export default function Home() {
         <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: "var(--font-display)" }}>
           Weekly Trends
         </h2>
-        <TrendChart interval="weekly" />
+        {showTrendChart ? (
+          <Suspense fallback={<div className="h-64 rounded-[12px] bg-[var(--bg-surface-sunken)]" />}>
+            <TrendChart interval="weekly" />
+          </Suspense>
+        ) : (
+          <div className="h-64 rounded-[12px] bg-[var(--bg-surface-sunken)]" />
+        )}
       </section>
     </div>
   );

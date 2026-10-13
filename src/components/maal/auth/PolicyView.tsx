@@ -1,5 +1,4 @@
 import React from "react";
-import { motion } from "motion/react";
 
 interface PolicyViewProps {
   view: "privacy" | "terms";
@@ -14,12 +13,7 @@ export function PolicyView({ view, onBack, landingTheme = "dark" }: PolicyViewPr
   const headingClass = `text-sm font-bold mb-1 transition-colors duration-300 ${isLight ? "text-zinc-800" : "text-white"}`;
 
   return (
-    <motion.div
-      key={view}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -15 }}
-      transition={{ duration: 0.2 }}
+    <div
       className="w-full max-w-2xl px-4 py-8 text-left"
     >
       <div className={`border-2 rounded-2xl p-6 sm:p-8 shadow-2xl flex flex-col gap-6 transition-colors duration-300 ${
@@ -203,6 +197,6 @@ export function PolicyView({ view, onBack, landingTheme = "dark" }: PolicyViewPr
           </span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

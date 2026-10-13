@@ -41,6 +41,7 @@ import {
   settingsForSync,
 } from "./device-lock";
 import { getDeviceId } from "./device-id";
+import { generateUUID } from "./uuid";
 import {
   mergeWorkspaceCatalogs,
   type CloudWorkspace,
@@ -536,7 +537,7 @@ export function TxProvider({ children }: { children: ReactNode; key?: React.Key 
       ...current,
       {
         ...wallet,
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         deleted: false,
         sync_status: "pending_insert",
         last_updated: now,

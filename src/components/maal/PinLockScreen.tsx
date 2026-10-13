@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useAccount } from "@/lib/accounts";
-import { motion, AnimatePresence } from "motion/react";
 import { Lock, Delete, LogOut, ShieldAlert, Fingerprint, Key, ExternalLink, ShieldCheck } from "lucide-react";
 import { authenticateLocalPasskey } from "@/lib/passkey";
 import { saveLocalPinVerifier, verifyLocalPin } from "@/lib/device-lock";
@@ -192,9 +191,7 @@ export function PinLockScreen({
 
   return (
     <div className="flex h-full min-h-0 w-full items-start justify-center overflow-y-auto bg-[var(--bg-base)] p-4 font-sans text-[var(--text-primary)] sm:p-6">
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+      <div
         className="my-auto flex w-full max-w-sm shrink-0 flex-col items-center gap-6 rounded-[16px] border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-hard-lg"
       >
         {/* Passkey UI Mode */}
@@ -318,10 +315,8 @@ export function PinLockScreen({
             )}
 
             {/* PIN Indicators */}
-            <motion.div
-              animate={shake ? { x: [-10, 10, -8, 8, -5, 5, 0] } : {}}
-              transition={{ duration: 0.5 }}
-              className="flex gap-4 justify-center py-2"
+            <div
+              className={`flex gap-4 justify-center py-2 ${shake ? "animate-pulse" : ""}`}
             >
               {[0, 1, 2, 3].map((index) => {
                 const isFilled = index < activeInputLength;
@@ -336,22 +331,11 @@ export function PinLockScreen({
                   />
                 );
               })}
-            </motion.div>
+            </div>
 
             {/* Error Feedback */}
             <div className="h-4 text-center">
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-xs font-bold text-red-500"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+              {error && <p className="text-xs font-bold text-red-500">{error}</p>}
             </div>
 
             {/* Keypad Layout */}
@@ -415,7 +399,7 @@ export function PinLockScreen({
             </div>
           </>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }

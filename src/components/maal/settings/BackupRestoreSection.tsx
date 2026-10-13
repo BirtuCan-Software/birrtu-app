@@ -3,10 +3,11 @@ import { useSettings } from "@/lib/settings";
 import { useTx } from "@/lib/tx-store";
 import { useAccount } from "@/lib/accounts";
 import { clearAndImportTransactions, type Transaction, type Wallet } from "@/lib/db";
-import { jsPDF } from "jspdf";
 import { formatETB, formatDateTime } from "@/lib/format";
 import { Section } from "./SettingsHelpers";
 import { Download, Upload } from "lucide-react";
+
+type PdfDoc = import("jspdf").jsPDF;
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear();
@@ -48,7 +49,7 @@ export function BackupRestoreSection() {
   }, [filteredTransactions]);
 
   const addWrappedText = (
-    doc: jsPDF,
+    doc: PdfDoc,
     text: string,
     x: number,
     y: number,
@@ -60,7 +61,7 @@ export function BackupRestoreSection() {
     return y + Math.max(lines.length, 1) * lineHeight;
   };
 
-  const drawTransactionHeader = (doc: jsPDF, y: number) => {
+  const drawTransactionHeader = (doc: PdfDoc, y: number) => {
     doc.setFillColor(246, 247, 249);
     doc.roundedRect(14, y - 5, 182, 8, 1.5, 1.5, "F");
 
@@ -81,6 +82,7 @@ export function BackupRestoreSection() {
 
   const handleExportPDF = async () => {
     try {
+      const { jsPDF } = await import("jspdf");
       const doc = new jsPDF();
       const generatedAt = new Date();
       const dateRangeLabel = `${startDate || "All time"} to ${endDate || "All time"}`;

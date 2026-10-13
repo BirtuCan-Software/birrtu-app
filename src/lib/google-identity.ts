@@ -80,8 +80,35 @@ declare global {
   }
 }
 
+let googleIdentityScriptPromise: Promise<void> | null = null;
+
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  if (!googleIdentityScriptPromise) {
+    googleIdentityScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[src="https://accounts.google.com/gsi/client"]',
+      );
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Google authorization failed to load.")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Google authorization failed to load."));
+      document.head.appendChild(script);
+    });
+  }
+  return googleIdentityScriptPromise;
+}
+
 export function requestDriveAccessToken(clientId: string, email?: string) {
-  return new Promise<string>((resolve, reject) => {
+  return loadGoogleIdentityScript().then(() => new Promise<string>((resolve, reject) => {
     const oauth = window.google?.accounts.oauth2;
     if (!oauth) {
       reject(new Error("Google authorization is still loading. Please retry."));
@@ -114,5 +141,5 @@ export function requestDriveAccessToken(clientId: string, email?: string) {
         reject(new Error("Google Drive authorization was cancelled.")),
     });
     client.requestAccessToken({ prompt: "" });
-  });
+  }));
 }

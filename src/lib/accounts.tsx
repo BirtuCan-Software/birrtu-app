@@ -6,14 +6,6 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
 import {
   cacheDriveAccessToken,
   clearDriveAccessToken,
@@ -21,6 +13,7 @@ import {
   restoreDriveAccessToken,
 } from "./google-identity";
 import { getDeviceId } from "./device-id";
+import { generateUUID } from "./uuid";
 import {
   mergeWorkspaceCatalogs,
   type CloudWorkspace,
@@ -47,9 +40,24 @@ function getFirebaseConfig() {
   return config;
 }
 
-// Initialize Firebase
-const app = initializeApp(getFirebaseConfig());
-const auth = getAuth(app);
+type AuthModule = typeof import("firebase/auth");
+type FirebaseAuth = import("firebase/auth").Auth;
+type FirebaseUser = import("firebase/auth").User;
+
+let firebaseAuthPromise: Promise<{ auth: FirebaseAuth; authModule: AuthModule }> | null = null;
+
+function getFirebaseAuth() {
+  if (!firebaseAuthPromise) {
+    firebaseAuthPromise = Promise.all([
+      import("firebase/app"),
+      import("firebase/auth"),
+    ]).then(([appModule, authModule]) => {
+      const app = appModule.initializeApp(getFirebaseConfig());
+      return { auth: authModule.getAuth(app), authModule };
+    });
+  }
+  return firebaseAuthPromise;
+}
 
 export interface AppUser {
   id: string;
@@ -108,6 +116,17 @@ const WORKSPACE_TOMBSTONES_KEY_PREFIX = "maal-workspace-tombstones-v1-";
 // In-memory access token cache
 let cachedAccessToken: string | null = null;
 
+function mapFirebaseUser(firebaseUser: FirebaseUser): AppUser {
+  return {
+    id: firebaseUser.uid,
+    username: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
+    email: firebaseUser.email || "",
+    photoURL: firebaseUser.photoURL || undefined,
+    phone: firebaseUser.phoneNumber || "",
+    createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
+  };
+}
+
 export function AccountProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -139,7 +158,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const now = new Date().toISOString();
       wks = [
         {
-          id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
+          id: "wk_" + generateUUID().replace(/-/g, ""),
           syncId: "primary",
           name: "Primary Workspace",
           createdAt: now,
@@ -157,7 +176,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
           workspace.syncId ||
           (index === 0
             ? "primary"
-            : `workspace_${crypto.randomUUID().replace(/-/g, "")}`),
+            : `workspace_${generateUUID().replace(/-/g, "")}`),
         updatedAt: workspace.updatedAt || workspace.createdAt,
         originDeviceId: workspace.originDeviceId || localDeviceId,
       }));
@@ -223,7 +242,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       return {
         id:
           existing?.id ||
-          `wk_${crypto.randomUUID().replace(/-/g, "")}`,
+          `wk_${generateUUID().replace(/-/g, "")}`,
         syncId: record.syncId,
         name: record.name,
         createdAt: record.createdAt,
@@ -262,65 +281,71 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   // Listen to Auth state changes on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    const isGuestMode = localStorage.getItem("birrtu_guest_logged_in") === "true";
+    if (isGuestMode) {
+      const guestUser: AppUser = {
+        id: "guest_user_id",
+        username: "Guest User",
+        email: "guest@local.birrtu",
+        phone: "",
+        createdAt: new Date().toISOString(),
+        isGuest: true,
+      };
+      setUser(guestUser);
+      setToken(null);
+      loadWorkspacesForUser("guest_user_id");
+      setReady(true);
+      return;
+    }
+
+    void getFirebaseAuth().then(({ auth, authModule }) => {
+      if (cancelled) return;
+      unsubscribe = authModule.onAuthStateChanged(auth, (firebaseUser) => {
+        if (cancelled) return;
       if (firebaseUser) {
         localStorage.removeItem("birrtu_guest_logged_in");
-        const mappedUser: AppUser = {
-          id: firebaseUser.uid,
-          username: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
-          email: firebaseUser.email || "",
-          photoURL: firebaseUser.photoURL || undefined,
-          phone: firebaseUser.phoneNumber || "",
-          createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
-        };
+        const mappedUser = mapFirebaseUser(firebaseUser);
         setUser(mappedUser);
         cachedAccessToken =
           cachedAccessToken || restoreDriveAccessToken(mappedUser.email);
         setToken(cachedAccessToken);
         loadWorkspacesForUser(firebaseUser.uid);
       } else {
-        const isGuestMode = localStorage.getItem("birrtu_guest_logged_in") === "true";
-        if (isGuestMode) {
-          const guestUser: AppUser = {
-            id: "guest_user_id",
-            username: "Guest User",
-            email: "guest@local.birrtu",
-            phone: "",
-            createdAt: new Date().toISOString(),
-            isGuest: true,
-          };
-          setUser(guestUser);
-          setToken(null);
-          loadWorkspacesForUser("guest_user_id");
-        } else {
-          setUser(null);
-          setToken(null);
-          cachedAccessToken = null;
-          clearDriveAccessToken();
-          setAccounts([]);
-          setWorkspaceTombstones([]);
-          setActiveAccountId(null);
-        }
+        setUser(null);
+        setToken(null);
+        cachedAccessToken = null;
+        clearDriveAccessToken();
+        setAccounts([]);
+        setWorkspaceTombstones([]);
+        setActiveAccountId(null);
       }
       setReady(true);
     });
+    });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const googleSignIn = async () => {
     setIsLoggingIn(true);
     try {
       localStorage.removeItem("birrtu_guest_logged_in");
-      const provider = new GoogleAuthProvider();
+      const { auth, authModule } = await getFirebaseAuth();
+      const provider = new authModule.GoogleAuthProvider();
       // Add drive scopes and profile scopes
       provider.addScope("https://www.googleapis.com/auth/drive.appdata");
       provider.addScope("openid");
       provider.addScope("https://www.googleapis.com/auth/userinfo.email");
       provider.addScope("https://www.googleapis.com/auth/userinfo.profile");
 
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const result = await authModule.signInWithPopup(auth, provider);
+      const credential = authModule.GoogleAuthProvider.credentialFromResult(result);
       if (!credential?.accessToken) {
         throw new Error("Failed to get OAuth access token from Google Sign-In");
       }
@@ -329,18 +354,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       cacheDriveAccessToken(cachedAccessToken, result.user.email || "");
       setToken(cachedAccessToken);
 
-      const firebaseUser = result.user;
-      const mappedUser: AppUser = {
-        id: firebaseUser.uid,
-        username: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
-        email: firebaseUser.email || "",
-        photoURL: firebaseUser.photoURL || undefined,
-        phone: firebaseUser.phoneNumber || "",
-        createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
-      };
+      const mappedUser = mapFirebaseUser(result.user);
 
       setUser(mappedUser);
-      loadWorkspacesForUser(firebaseUser.uid);
+      loadWorkspacesForUser(result.user.uid);
       return { success: true, token: cachedAccessToken };
     } catch (error: any) {
       console.error("Google Sign In Error:", error);
@@ -402,7 +419,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const handleLogout = async () => {
     try {
       localStorage.removeItem("birrtu_guest_logged_in");
-      await signOut(auth);
+      const { auth, authModule } = await getFirebaseAuth();
+      await authModule.signOut(auth);
       cachedAccessToken = null;
       clearDriveAccessToken();
       setToken(null);
@@ -428,8 +446,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
     const now = new Date().toISOString();
     const newWorkspace: AppAccount = {
-      id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
-      syncId: `workspace_${crypto.randomUUID().replace(/-/g, "")}`,
+      id: "wk_" + generateUUID().replace(/-/g, ""),
+      syncId: `workspace_${generateUUID().replace(/-/g, "")}`,
       name: trimmed,
       createdAt: now,
       updatedAt: now,
@@ -455,8 +473,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const trimmed = name.trim() || "Imported Workspace";
     const now = new Date().toISOString();
     const newWorkspace: AppAccount = {
-      id: "wk_" + crypto.randomUUID().replace(/-/g, ""),
-      syncId: `workspace_${crypto.randomUUID().replace(/-/g, "")}`,
+      id: "wk_" + generateUUID().replace(/-/g, ""),
+      syncId: `workspace_${generateUUID().replace(/-/g, "")}`,
       name: trimmed,
       createdAt: now,
       updatedAt: now,
